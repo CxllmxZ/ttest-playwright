@@ -5,6 +5,7 @@
   "main": "./dist/cli.js",
   "scripts": {
     "build": "tsc",
+    "prepare": "tsc",
     "dev": "tsx",
     "start": "node dist/cli.js"
   },
