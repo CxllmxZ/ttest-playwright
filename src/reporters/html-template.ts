@@ -17,6 +17,15 @@ export function generateHTML(result: TestResult): string {
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>ttest Report — ${escapeHtml(result.name)}</title>
+  <script>
+    (function() {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has('t')) {
+        url.searchParams.set('t', Date.now());
+        window.location.replace(url.toString());
+        }
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
