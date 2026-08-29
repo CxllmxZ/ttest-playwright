@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ttest Report — Wikipedia search</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid #22c55e;
+    }
+    .brand {
+      font-size: 0.875rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .test-name {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 0.5rem;
+    }
+    .test-desc {
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: #22c55e22;
+      color: #22c55e;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1.125rem;
+    }
+    .duration {
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    .section {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .count {
+      color: #64748b;
+      font-size: 0.875rem;
+      font-weight: 400;
+    }
+    .item {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .item:last-child { margin-bottom: 0; }
+    .item-icon {
+      font-size: 1.25rem;
+      font-weight: 700;
+      min-width: 1.5rem;
+      text-align: center;
+    }
+    .icon-pass { color: #22c55e; }
+    .icon-fail { color: #ef4444; }
+    .item-body { flex: 1; min-width: 0; }
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .item-name {
+      color: #f1f5f9;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    .item-duration {
+      color: #64748b;
+      font-size: 0.875rem;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    }
+    .item-detail {
+      margin-top: 0.5rem;
+      color: #94a3b8;
+      font-size: 0.875rem;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      word-break: break-all;
+    }
+    .item-error {
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: #7f1d1d33;
+      border-left: 3px solid #ef4444;
+      border-radius: 4px;
+      color: #fca5a5;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      color: #475569;
+      font-size: 0.875rem;
+    }
+    .footer a {
+      color: #64748b;
+      text-decoration: none;
+    }
+    .footer a:hover { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">ttest report</div>
+      <h1 class="test-name">Wikipedia search</h1>
+      <p class="test-desc">Verify search functionality on Wikipedia</p>
+      <div class="status-row">
+        <div class="status">
+          <span>✓</span>
+          <span>PASSED</span>
+        </div>
+        <div class="duration">Total: 7.30s</div>
+      </div>
+    </div>
+
+    
+    <div class="section">
+      <div class="section-title">
+        Steps <span class="count">(4)</span>
+      </div>
+      
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">1. goto</span>
+            <span class="item-duration">3.94s</span>
+          </div>
+          
+        </div>
+      </div>
+    
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">2. fill</span>
+            <span class="item-duration">103ms</span>
+          </div>
+          
+        </div>
+      </div>
+    
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">3. click</span>
+            <span class="item-duration">1.55s</span>
+          </div>
+          
+        </div>
+      </div>
+    
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">4. wait_for</span>
+            <span class="item-duration">307ms</span>
+          </div>
+          
+        </div>
+      </div>
+    
+    </div>
+  
+    
+    <div class="section">
+      <div class="section-title">
+        Assertions <span class="count">(2)</span>
+      </div>
+      
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">1. url_matches</span>
+          </div>
+          
+        </div>
+      </div>
+    
+      <div class="item">
+        <div class="item-icon icon-pass">✓</div>
+        <div class="item-body">
+          <div class="item-header">
+            <span class="item-name">2. visible</span>
+          </div>
+          
+        </div>
+      </div>
+    
+    </div>
+  
+    
+
+    <div class="footer">
+      Generated by <a href="https://github.com/CxllmxZ/ttest-playwright">ttest</a> · 29/8/2569 20:16:49
+    </div>
+  </div>
+</body>
+</html>

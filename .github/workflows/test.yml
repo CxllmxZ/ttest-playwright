@@ -1,12 +1,23 @@
-name: ttest E2E
+name: Build ttest
 
 on:
-  workflow_dispatch:              # ← กด Run manual บน GitHub UI
+  workflow_dispatch:
   push:
     paths:
       - 'project-testcase/**'
       - 'src/**'
       - '.github/workflows/test.yml'
+
+# Permissions ที่ต้องมีสำหรับ deploy Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ป้องกัน concurrent deploys
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -38,4 +49,34 @@ jobs:
         run: pnpm build
 
       - name: Run Nebula smoke test
+        id: run-test
         run: node dist/cli.js run project-testcase/nebula-spa/smoke.yaml
+        continue-on-error: true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./report
+
+      - name: Fail workflow if test failed
+        if: steps.run-test.outcome == 'failure'
+        run: |
+          echo "❌ Test failed - see report for details"
+          exit 1
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

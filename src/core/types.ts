@@ -111,3 +111,13 @@ export interface AssertionResult {
   status: 'pass' | 'fail';
   error?: string;
 }
+
+export interface TestResult {
+  name: string;
+  description?: string;      // ← เพิ่มบรรทัดนี้
+  status: 'pass' | 'fail';
+  duration: number;
+  steps: StepResult[];
+  assertions: AssertionResult[];
+  error?: string;
+}

@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { parseTestFile } from './core/parser.js';
 import { runTest } from './core/runner.js';
 import type { TestResult } from './core/types.js';
+import { writeHTMLReport } from './reporters/html-reporter.js';
 
 const program = new Command();
 
@@ -29,6 +30,10 @@ program
 
       const result = await runTest(testCase);
       printResult(result);
+
+      // Write HTML report
+      const reportPath = writeHTMLReport(result);
+      console.log(chalk.gray(`\n📄 HTML report: ${reportPath}`));
 
       process.exit(result.status === 'pass' ? 0 : 1);
     } catch (err: any) {

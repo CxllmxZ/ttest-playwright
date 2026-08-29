@@ -93,6 +93,7 @@ export async function runTest(testCase: TestCase): Promise<TestResult> {
 
   return {
     name: testCase.name,
+    description: testCase.description,    // ← เพิ่มบรรทัดนี้
     status,
     duration,
     steps: stepResults,
