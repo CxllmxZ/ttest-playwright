@@ -1,0 +1,31 @@
+{
+  "name": "ttest-playwright",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx",
+    "start": "node dist/cli.js"
+  },
+  "bin": {
+    "ttest": "./dist/cli.js"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.23.0",
+  "dependencies": {
+    "@playwright/test": "^1.62.1",
+    "chalk": "^6.0.0",
+    "commander": "^15.0.0",
+    "playwright": "^1.62.1",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}

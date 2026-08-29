@@ -1,0 +1,28 @@
+name: "Wikipedia search"
+description: "Verify search functionality on Wikipedia"
+
+steps:
+  - action: goto
+    target: https://www.wikipedia.org
+
+  - action: fill
+    locator:
+      css: "#searchInput"
+    value: "Playwright"
+
+  - action: click
+    locator:
+      role: button
+      name: "Search"
+
+  - action: wait_for
+    locator:
+      css: "#firstHeading"
+
+assertions:
+  - type: url_matches
+    pattern: "Playwright"
+
+  - type: visible
+    locator:
+      css: "#firstHeading"

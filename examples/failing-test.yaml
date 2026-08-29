@@ -1,0 +1,12 @@
+name: "Failing test — element doesn't exist"
+description: "Verify error reporting works when locator fails"
+
+steps:
+  - action: goto
+    target: https://example.com
+
+  - action: click
+    locator:
+      role: button
+      name: "This button does not exist"
+    timeout: 3000
