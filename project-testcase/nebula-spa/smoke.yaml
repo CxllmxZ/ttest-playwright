@@ -9,6 +9,13 @@ steps:
     locator:
       css: "body"
 
+  # เพิ่มท้าย steps (ก่อน assertions)
+  - action: click
+    locator:
+      role: button
+      name: "Non-existent button"
+    timeout: 3000
+
 assertions:
   - type: url_matches
     pattern: "nebula-spa"
