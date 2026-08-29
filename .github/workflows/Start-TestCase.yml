@@ -6,7 +6,7 @@ on:
     paths:
       - 'project-testcase/**'
       - 'src/**'
-      - '.github/workflows/test.yml'
+      - '.github/workflows/Start-TestCase.yml'
 
 # Permissions ที่ต้องมีสำหรับ deploy Pages
 permissions:
