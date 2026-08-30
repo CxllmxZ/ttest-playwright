@@ -1,0 +1,18 @@
+name: "Nebula localhost — landing"
+description: "Test local dev server (needs Nebula running on :8787)"
+
+steps:
+  - action: goto
+    target: http://localhost:8787
+
+  - action: wait_for
+    locator:
+      css: "body"
+
+assertions:
+  - type: url_matches
+    pattern: "localhost:8787"
+  
+  - type: visible
+    locator:
+      css: "body"

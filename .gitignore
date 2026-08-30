@@ -21,3 +21,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Local Playwright browsers (installed per-machine via setup.bat)
+browsers/
