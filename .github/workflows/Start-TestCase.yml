@@ -2,6 +2,30 @@ name: Build ttest
 
 on:
   workflow_dispatch:
+    inputs:
+      project:
+        description: 'Which project to test'
+        required: true
+        type: choice
+        options:
+          - nebula-spa
+          - demo
+        default: 'nebula-spa'
+      
+      scope:
+        description: 'Test scope'
+        required: true
+        type: choice
+        options:
+          - all
+          - specific
+        default: 'all'
+      
+      test_file:
+        description: 'Test file (only if scope=specific, e.g., smoke.yaml)'
+        required: false
+        type: string
+        default: 'smoke.yaml'
 
 # Permissions ที่ต้องมีสำหรับ deploy Pages
 permissions:
@@ -43,9 +67,36 @@ jobs:
       - name: Build ttest
         run: pnpm build
 
-      - name: Run Nebula smoke test
+      - name: Determine test path
+        id: path
+        run: |
+          if [ "${{ inputs.scope }}" = "all" ]; then
+            TEST_PATH="project-testcase/${{ inputs.project }}/"
+            echo "Mode: Run ALL tests in ${{ inputs.project }}/"
+          else
+            TEST_PATH="project-testcase/${{ inputs.project }}/${{ inputs.test_file }}"
+            echo "Mode: Run SPECIFIC test: ${{ inputs.test_file }}"
+          fi
+          echo "path=$TEST_PATH" >> $GITHUB_OUTPUT
+          echo "Selected: $TEST_PATH"
+
+      - name: Validate path
+        run: |
+          TARGET="${{ steps.path.outputs.path }}"
+          if [ ! -e "$TARGET" ]; then
+            echo "❌ Path not found: $TARGET"
+            echo ""
+            echo "Available projects:"
+            ls project-testcase | sed 's|^|  - |'
+            echo ""
+            echo "Available tests:"
+            find project-testcase -name "*.yaml" | sed 's|project-testcase/|  - |'
+            exit 1
+          fi
+
+      - name: Run test(s)
         id: run-test
-        run: node dist/cli.js run project-testcase/nebula-spa/smoke.yaml
+        run: node dist/cli.js run ${{ steps.path.outputs.path }}
         continue-on-error: true
 
       - name: Setup Pages
@@ -59,7 +110,7 @@ jobs:
       - name: Fail workflow if test failed
         if: steps.run-test.outcome == 'failure'
         run: |
-          echo "❌ Test failed - see report for details"
+          echo "❌ Test(s) failed - see report for details"
           exit 1
 
   deploy:
