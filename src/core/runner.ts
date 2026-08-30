@@ -1,12 +1,16 @@
 import { chromium } from 'playwright';
+import { basename } from 'node:path';
 import type {
   TestCase,
   TestResult,
   StepResult,
   AssertionResult,
+  TestSuiteResult,
 } from './types.js';
 import { executeAction } from './action-executor.js';
 import { executeAssertion } from './assertion-executor.js';
+import { discoverTests } from './test-discovery.js';
+import { parseTestFile } from './parser.js';
 
 /**
  * Run a single test case end-to-end
@@ -93,11 +97,61 @@ export async function runTest(testCase: TestCase): Promise<TestResult> {
 
   return {
     name: testCase.name,
-    description: testCase.description,    // ← เพิ่มบรรทัดนี้
+    description: testCase.description,
     status,
     duration,
     steps: stepResults,
     assertions: assertionResults,
     error: overallError,
+  };
+}
+
+/**
+ * Run multiple test files (suite)
+ */
+export async function runSuite(folderPath: string): Promise<TestSuiteResult> {
+  const startTime = Date.now();
+  const testFiles = discoverTests(folderPath);
+  const testResults: TestResult[] = [];
+
+  console.log(`\n📁 Found ${testFiles.length} test files in ${folderPath}\n`);
+
+  for (const filePath of testFiles) {
+    const relativePath = filePath.replace(folderPath, '').replace(/^[\/\\]/, '');
+    console.log(`▶️  Running: ${relativePath}`);
+
+    try {
+      const testCase = parseTestFile(filePath);
+      const result = await runTest(testCase);
+      testResults.push(result);
+
+      const icon = result.status === 'pass' ? '✅' : '❌';
+      console.log(`${icon} ${result.status.toUpperCase()} (${result.duration}ms)\n`);
+    } catch (err: any) {
+      // Test file failed to parse or run
+      testResults.push({
+        name: relativePath,
+        status: 'fail',
+        duration: 0,
+        steps: [],
+        assertions: [],
+        error: `Failed to run: ${err.message}`,
+      });
+      console.log(`❌ FAIL - ${err.message}\n`);
+    }
+  }
+
+  const duration = Date.now() - startTime;
+  const passedTests = testResults.filter((t) => t.status === 'pass').length;
+  const failedTests = testResults.filter((t) => t.status === 'fail').length;
+
+  return {
+    name: basename(folderPath),
+    status: failedTests === 0 ? 'pass' : 'fail',
+    duration,
+    totalTests: testResults.length,
+    passedTests,
+    failedTests,
+    tests: testResults,
   };
 }

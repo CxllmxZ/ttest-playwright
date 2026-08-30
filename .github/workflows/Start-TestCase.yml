@@ -2,11 +2,6 @@ name: Build ttest
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'project-testcase/**'
-      - 'src/**'
-      - '.github/workflows/Start-TestCase.yml'
 
 # Permissions ที่ต้องมีสำหรับ deploy Pages
 permissions:

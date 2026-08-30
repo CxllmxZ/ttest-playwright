@@ -121,3 +121,17 @@ export interface TestResult {
   assertions: AssertionResult[];
   error?: string;
 }
+
+// ============================================
+// Suite Result (multiple tests combined)
+// ============================================
+
+export interface TestSuiteResult {
+  name: string;                    // Suite name (folder name or filename)
+  status: 'pass' | 'fail';         // overall status (fail if any test failed)
+  duration: number;                // total ms
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+  tests: TestResult[];             // individual test results
+}

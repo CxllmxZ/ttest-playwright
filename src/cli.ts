@@ -6,6 +6,9 @@ import { parseTestFile } from './core/parser.js';
 import { runTest } from './core/runner.js';
 import type { TestResult } from './core/types.js';
 import { writeHTMLReport } from './reporters/html-reporter.js';
+import { isFolder } from './core/test-discovery.js';
+import { runSuite } from './core/runner.js';
+import type { TestSuiteResult } from './core/types.js';
 
 const program = new Command();
 
@@ -15,27 +18,55 @@ program
   .version('0.1.0');
 
 program
-  .command('run <file>')
-  .description('Run a test case from YAML file')
-  .action(async (file: string) => {
+  .command('run <path>')
+  .description('Run a test file or all tests in a folder')
+  .action(async (path: string) => {
     try {
-      console.log(chalk.gray('📖 Parsing YAML...'));
-      const testCase = parseTestFile(file);
+      const targetIsFolder = isFolder(path);
 
-      console.log(chalk.cyan(`🚀 Running: ${chalk.bold(testCase.name)}`));
-      if (testCase.description) {
-        console.log(chalk.gray(`   ${testCase.description}`));
+      if (targetIsFolder) {
+        // Run suite (folder)
+        console.log(chalk.cyan(`🚀 Running suite: ${chalk.bold(path)}`));
+        console.log(chalk.gray('─'.repeat(60)));
+
+        const suiteResult = await runSuite(path);
+        printSuiteResult(suiteResult);
+
+        // Write HTML report
+        const reportPath = writeHTMLReport(suiteResult);
+        console.log(chalk.gray(`\n📄 HTML report: ${reportPath}`));
+
+        process.exit(suiteResult.status === 'pass' ? 0 : 1);
+      } else {
+        // Run single test (file)
+        console.log(chalk.gray('📖 Parsing YAML...'));
+        const testCase = parseTestFile(path);
+
+        console.log(chalk.cyan(`🚀 Running: ${chalk.bold(testCase.name)}`));
+        if (testCase.description) {
+          console.log(chalk.gray(`   ${testCase.description}`));
+        }
+        console.log(chalk.gray('─'.repeat(60)));
+
+        const result = await runTest(testCase);
+        printResult(result);
+
+        // Wrap single test as suite for consistent report
+        const suiteResult: TestSuiteResult = {
+          name: testCase.name,
+          status: result.status,
+          duration: result.duration,
+          totalTests: 1,
+          passedTests: result.status === 'pass' ? 1 : 0,
+          failedTests: result.status === 'fail' ? 1 : 0,
+          tests: [result],
+        };
+
+        const reportPath = writeHTMLReport(suiteResult);
+        console.log(chalk.gray(`\n📄 HTML report: ${reportPath}`));
+
+        process.exit(result.status === 'pass' ? 0 : 1);
       }
-      console.log(chalk.gray('─'.repeat(60)));
-
-      const result = await runTest(testCase);
-      printResult(result);
-
-      // Write HTML report
-      const reportPath = writeHTMLReport(result);
-      console.log(chalk.gray(`\n📄 HTML report: ${reportPath}`));
-
-      process.exit(result.status === 'pass' ? 0 : 1);
     } catch (err: any) {
       console.error(chalk.red(`\n💥 Fatal error: ${err.message}`));
       process.exit(2);
@@ -43,6 +74,32 @@ program
   });
 
 program.parse();
+
+function printSuiteResult(suite: TestSuiteResult) {
+  const icon = suite.status === 'pass' ? chalk.green('✅') : chalk.red('❌');
+  const statusText =
+    suite.status === 'pass'
+      ? chalk.green.bold('ALL PASSED')
+      : chalk.red.bold('SUITE FAILED');
+
+  console.log(`\n${icon} ${statusText} ${chalk.gray(`(${suite.duration}ms)`)}`);
+  console.log(
+    chalk.gray(
+      `   ${suite.totalTests} tests: ${chalk.green(suite.passedTests + ' passed')}, ${chalk.red(suite.failedTests + ' failed')}`
+    )
+  );
+
+  console.log(chalk.bold(`\nTests:`));
+  for (const test of suite.tests) {
+    const testIcon =
+      test.status === 'pass' ? chalk.green('  ✓') : chalk.red('  ✗');
+    const duration = chalk.gray(`(${test.duration}ms)`);
+    console.log(`${testIcon} ${test.name} ${duration}`);
+    if (test.error) {
+      console.log(chalk.red(`      ${test.error}`));
+    }
+  }
+}
 
 // ============================================
 // Result Printer

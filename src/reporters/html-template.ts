@@ -1,29 +1,26 @@
-import type { TestResult } from '../core/types.js';
+import type { TestSuiteResult, TestResult } from '../core/types.js';
 
 /**
- * Generate self-contained HTML report
+ * Generate HTML report for test suite
  */
-export function generateHTML(result: TestResult): string {
-  const statusColor = result.status === 'pass' ? '#22c55e' : '#ef4444';
-  const statusIcon = result.status === 'pass' ? '✓' : '✗';
-  const statusText = result.status === 'pass' ? 'PASSED' : 'FAILED';
+export function generateSuiteHTML(suite: TestSuiteResult): string {
+  const statusColor = suite.status === 'pass' ? '#22c55e' : '#ef4444';
+  const statusIcon = suite.status === 'pass' ? '✓' : '✗';
+  const statusText = suite.status === 'pass' ? 'ALL PASSED' : 'FAILED';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>ttest Report — ${escapeHtml(result.name)}</title>
+  <title>ttest Report — ${escapeHtml(suite.name)}</title>
   <script>
     (function() {
-        const url = new URL(window.location.href);
-        if (!url.searchParams.has('t')) {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('t')) {
         url.searchParams.set('t', Date.now());
         window.location.replace(url.toString());
-        }
+      }
     })();
   </script>
   <style>
@@ -35,10 +32,7 @@ export function generateHTML(result: TestResult): string {
       min-height: 100vh;
       padding: 2rem 1rem;
     }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
+    .container { max-width: 900px; margin: 0 auto; }
     .header {
       background: #1e293b;
       border-radius: 12px;
@@ -53,15 +47,11 @@ export function generateHTML(result: TestResult): string {
       letter-spacing: 0.1em;
       margin-bottom: 0.5rem;
     }
-    .test-name {
+    .suite-name {
       font-size: 1.75rem;
       font-weight: 700;
       color: #f1f5f9;
-      margin-bottom: 0.5rem;
-    }
-    .test-desc {
-      color: #94a3b8;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
     .status-row {
       display: flex;
@@ -81,25 +71,73 @@ export function generateHTML(result: TestResult): string {
       font-weight: 600;
       font-size: 1.125rem;
     }
-    .duration {
-      color: #64748b;
+    .summary {
+      color: #94a3b8;
       font-size: 0.95rem;
     }
-    .section {
+    .duration { color: #64748b; }
+    .test-card {
       background: #1e293b;
       border-radius: 12px;
       padding: 1.5rem;
       margin-bottom: 1rem;
+      border-left: 4px solid;
     }
-    .section-title {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: #f1f5f9;
-      margin-bottom: 1rem;
+    .test-card.pass { border-left-color: #22c55e; }
+    .test-card.fail { border-left-color: #ef4444; }
+    details { cursor: pointer; }
+    summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    .test-header {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 0;
     }
+    .test-icon {
+      font-size: 1.25rem;
+      font-weight: 700;
+      min-width: 1.5rem;
+    }
+    .icon-pass { color: #22c55e; }
+    .icon-fail { color: #ef4444; }
+    .test-name {
+      color: #f1f5f9;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .test-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+    .toggle-icon {
+      transition: transform 0.2s;
+      color: #64748b;
+    }
+    details[open] .toggle-icon { transform: rotate(90deg); }
+    .test-detail {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #334155;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.75rem;
+      margin-top: 1rem;
+    }
+    .section-title:first-child { margin-top: 0; }
     .count {
       color: #64748b;
       font-size: 0.875rem;
@@ -107,56 +145,36 @@ export function generateHTML(result: TestResult): string {
     }
     .item {
       background: #0f172a;
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.375rem;
       display: flex;
       align-items: flex-start;
       gap: 0.75rem;
     }
     .item:last-child { margin-bottom: 0; }
-    .item-icon {
-      font-size: 1.25rem;
-      font-weight: 700;
-      min-width: 1.5rem;
-      text-align: center;
-    }
-    .icon-pass { color: #22c55e; }
-    .icon-fail { color: #ef4444; }
+    .item-icon { font-weight: 700; min-width: 1.25rem; }
     .item-body { flex: 1; min-width: 0; }
     .item-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
+      gap: 0.5rem;
     }
-    .item-name {
-      color: #f1f5f9;
-      font-weight: 500;
-      font-size: 0.95rem;
-    }
+    .item-name { color: #e2e8f0; font-size: 0.9rem; }
     .item-duration {
       color: #64748b;
-      font-size: 0.875rem;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    }
-    .item-detail {
-      margin-top: 0.5rem;
-      color: #94a3b8;
-      font-size: 0.875rem;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      word-break: break-all;
+      font-size: 0.8rem;
+      font-family: monospace;
     }
     .item-error {
-      margin-top: 0.75rem;
-      padding: 0.75rem 1rem;
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
       background: #7f1d1d33;
       border-left: 3px solid #ef4444;
       border-radius: 4px;
       color: #fca5a5;
-      font-family: 'SF Mono', Monaco, monospace;
-      font-size: 0.85rem;
+      font-family: monospace;
+      font-size: 0.8rem;
       white-space: pre-wrap;
       word-break: break-word;
     }
@@ -166,31 +184,28 @@ export function generateHTML(result: TestResult): string {
       color: #475569;
       font-size: 0.875rem;
     }
-    .footer a {
-      color: #64748b;
-      text-decoration: none;
-    }
-    .footer a:hover { color: #94a3b8; }
+    .footer a { color: #64748b; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="brand">ttest report</div>
-      <h1 class="test-name">${escapeHtml(result.name)}</h1>
-      ${result.description ? `<p class="test-desc">${escapeHtml(result.description)}</p>` : ''}
+      <div class="brand">ttest suite report</div>
+      <h1 class="suite-name">${escapeHtml(suite.name)}</h1>
       <div class="status-row">
         <div class="status">
           <span>${statusIcon}</span>
           <span>${statusText}</span>
         </div>
-        <div class="duration">Total: ${formatDuration(result.duration)}</div>
+        <div class="summary">
+          <strong style="color: #22c55e;">${suite.passedTests} passed</strong>
+          ${suite.failedTests > 0 ? ` · <strong style="color: #ef4444;">${suite.failedTests} failed</strong>` : ''}
+          · <span class="duration">${formatDuration(suite.duration)}</span>
+        </div>
       </div>
     </div>
 
-    ${renderSteps(result)}
-    ${renderAssertions(result)}
-    ${result.error ? renderError(result.error) : ''}
+    ${suite.tests.map((t) => renderTestCard(t)).join('')}
 
     <div class="footer">
       Generated by <a href="https://github.com/CxllmxZ/ttest-playwright">ttest</a> · ${new Date().toLocaleString()}
@@ -201,13 +216,42 @@ export function generateHTML(result: TestResult): string {
 }
 
 // ==========================================
-// Helper functions
+// Helpers
 // ==========================================
 
-function renderSteps(result: TestResult): string {
-  if (result.steps.length === 0) return '';
+function renderTestCard(test: TestResult): string {
+  const icon = test.status === 'pass' ? '✓' : '✗';
+  const iconClass = test.status === 'pass' ? 'icon-pass' : 'icon-fail';
+  const cardClass = test.status === 'pass' ? 'pass' : 'fail';
 
-  const items = result.steps.map((step) => {
+  return `
+    <div class="test-card ${cardClass}">
+      <details ${test.status === 'fail' ? 'open' : ''}>
+        <summary>
+          <div class="test-header">
+            <span class="test-icon ${iconClass}">${icon}</span>
+            <span class="test-name">${escapeHtml(test.name)}</span>
+          </div>
+          <div class="test-meta">
+            <span>${formatDuration(test.duration)}</span>
+            <span class="toggle-icon">▶</span>
+          </div>
+        </summary>
+        <div class="test-detail">
+          ${test.description ? `<div class="section-title" style="color: #94a3b8; margin-bottom: 1rem;">${escapeHtml(test.description)}</div>` : ''}
+          ${renderSteps(test)}
+          ${renderAssertions(test)}
+          ${test.error && test.steps.length === 0 ? `<div class="section-title">Error</div><div class="item-error">${escapeHtml(test.error)}</div>` : ''}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function renderSteps(test: TestResult): string {
+  if (test.steps.length === 0) return '';
+
+  const items = test.steps.map((step) => {
     const iconClass = step.status === 'pass' ? 'icon-pass' : 'icon-fail';
     const icon = step.status === 'pass' ? '✓' : '✗';
 
@@ -226,19 +270,15 @@ function renderSteps(result: TestResult): string {
   }).join('');
 
   return `
-    <div class="section">
-      <div class="section-title">
-        Steps <span class="count">(${result.steps.length})</span>
-      </div>
-      ${items}
-    </div>
+    <div class="section-title">Steps <span class="count">(${test.steps.length})</span></div>
+    ${items}
   `;
 }
 
-function renderAssertions(result: TestResult): string {
-  if (result.assertions.length === 0) return '';
+function renderAssertions(test: TestResult): string {
+  if (test.assertions.length === 0) return '';
 
-  const items = result.assertions.map((assertion) => {
+  const items = test.assertions.map((assertion) => {
     const iconClass = assertion.status === 'pass' ? 'icon-pass' : 'icon-fail';
     const icon = assertion.status === 'pass' ? '✓' : '✗';
 
@@ -256,23 +296,8 @@ function renderAssertions(result: TestResult): string {
   }).join('');
 
   return `
-    <div class="section">
-      <div class="section-title">
-        Assertions <span class="count">(${result.assertions.length})</span>
-      </div>
-      ${items}
-    </div>
-  `;
-}
-
-function renderError(error: string): string {
-  return `
-    <div class="section">
-      <div class="section-title" style="color: #ef4444;">
-        Error
-      </div>
-      <div class="item-error">${escapeHtml(error)}</div>
-    </div>
+    <div class="section-title">Assertions <span class="count">(${test.assertions.length})</span></div>
+    ${items}
   `;
 }
 
