@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Nebula Localhost - Booking Flow', () => {
-  test('Customer A books Monday 31 Aug 12:00', async ({ page }) => {
+  test('Customer A books', async ({ page }) => {
     await page.goto('http://localhost:8787/book');
     
     // Select service
