@@ -1,4 +1,4 @@
-name: Build ttest
+name: Playwright Tests
 
 on:
   workflow_dispatch:
@@ -22,18 +22,16 @@ on:
         default: 'all'
       
       test_file:
-        description: 'Test file (only if scope=specific, e.g., smoke.yaml)'
+        description: 'Test file (if scope=specific, e.g., smoke.spec.ts)'
         required: false
         type: string
-        default: 'smoke.yaml'
+        default: 'smoke.spec.ts'
 
-# Permissions ที่ต้องมีสำหรับ deploy Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# ป้องกัน concurrent deploys
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -41,7 +39,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -64,39 +62,36 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      - name: Build ttest
-        run: pnpm build
-
       - name: Determine test path
         id: path
         run: |
           if [ "${{ inputs.scope }}" = "all" ]; then
-            TEST_PATH="project-testcase/${{ inputs.project }}/"
+            TEST_PATH="Test-Prod/${{ inputs.project }}/"
             echo "Mode: Run ALL tests in ${{ inputs.project }}/"
           else
-            TEST_PATH="project-testcase/${{ inputs.project }}/${{ inputs.test_file }}"
+            TEST_PATH="Test-Prod/${{ inputs.project }}/${{ inputs.test_file }}"
             echo "Mode: Run SPECIFIC test: ${{ inputs.test_file }}"
           fi
           echo "path=$TEST_PATH" >> $GITHUB_OUTPUT
           echo "Selected: $TEST_PATH"
 
-      - name: Validate path
+      - name: Validate path exists
         run: |
           TARGET="${{ steps.path.outputs.path }}"
           if [ ! -e "$TARGET" ]; then
             echo "❌ Path not found: $TARGET"
             echo ""
             echo "Available projects:"
-            ls project-testcase | sed 's|^|  - |'
+            ls Test-Prod | sed 's|^|  - |'
             echo ""
             echo "Available tests:"
-            find project-testcase -name "*.yaml" | sed 's|project-testcase/|  - |'
+            find Test-Prod -name "*.spec.ts" | sed 's|Test-Prod/|  - |'
             exit 1
           fi
 
-      - name: Run test(s)
+      - name: Run Playwright tests
         id: run-test
-        run: node dist/cli.js run ${{ steps.path.outputs.path }}
+        run: pnpm exec playwright test ${{ steps.path.outputs.path }}
         continue-on-error: true
 
       - name: Setup Pages
@@ -105,12 +100,12 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./report
+          path: ./playwright-report
 
       - name: Fail workflow if test failed
         if: steps.run-test.outcome == 'failure'
         run: |
-          echo "❌ Test(s) failed - see report for details"
+          echo "❌ Test failed - see report for details"
           exit 1
 
   deploy:
