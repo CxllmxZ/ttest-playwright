@@ -3,29 +3,11 @@ name: Start-TestCase
 on:
   workflow_dispatch:
     inputs:
-      project:
-        description: 'Which project to test'
+      test:
+        description: 'Format - project/testcase or project/'
         required: true
-        type: choice
-        options:
-          - nebula-spa
-          - demo
-        default: 'nebula-spa'
-      
-      scope:
-        description: 'Test scope'
-        required: true
-        type: choice
-        options:
-          - all
-          - specific
-        default: 'all'
-      
-      test_file:
-        description: 'Test file (if scope=specific, e.g., smoke.spec.ts)'
-        required: false
         type: string
-        default: 'smoke.spec.ts'
+        default: 'nebula-spa/smoke'
 
 permissions:
   contents: read
@@ -40,7 +22,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,27 +46,28 @@ jobs:
       - name: Determine test path
         id: path
         run: |
-          if [ "${{ inputs.scope }}" = "all" ]; then
-            TEST_PATH="Test-Prod/${{ inputs.project }}/"
-            echo "Mode: Run ALL tests in ${{ inputs.project }}/"
+          INPUT="${{ inputs.test }}"
+          if [[ "$INPUT" == */ ]]; then
+            TEST_PATH="Test-Prod/$INPUT"
+            echo "Mode - folder"
           else
-            TEST_PATH="Test-Prod/${{ inputs.project }}/${{ inputs.test_file }}"
-            echo "Mode: Run SPECIFIC test: ${{ inputs.test_file }}"
+            TEST_PATH="Test-Prod/${INPUT}.spec.ts"
+            echo "Mode - specific file"
           fi
           echo "path=$TEST_PATH" >> $GITHUB_OUTPUT
-          echo "Selected: $TEST_PATH"
+          echo "Selected - $TEST_PATH"
 
       - name: Validate path exists
         run: |
           TARGET="${{ steps.path.outputs.path }}"
           if [ ! -e "$TARGET" ]; then
-            echo "❌ Path not found: $TARGET"
+            echo "Not found - $TARGET"
             echo ""
             echo "Available projects:"
-            ls Test-Prod | sed 's|^|  - |'
+            ls -d Test-Prod/*/ 2>/dev/null | sed 's|Test-Prod/|  - |'
             echo ""
             echo "Available tests:"
-            find Test-Prod -name "*.spec.ts" | sed 's|Test-Prod/|  - |'
+            find Test-Prod -name "*.spec.ts" 2>/dev/null | sed 's|Test-Prod/||' | sed 's|.spec.ts||' | sed 's|^|  - |'
             exit 1
           fi
 
@@ -102,21 +84,17 @@ jobs:
         with:
           path: ./playwright-report
 
-      - name: Fail workflow if test failed
+      - name: Fail if test failed
         if: steps.run-test.outcome == 'failure'
-        run: |
-          echo "❌ Test failed - see report for details"
-          exit 1
+        run: exit 1
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     if: always()
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
