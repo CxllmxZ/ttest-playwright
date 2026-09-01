@@ -11,7 +11,7 @@ test.describe('Nebula Production - Booking Flow', () => {
     await page.getByRole('button', { name: 'วันพฤหัสบดีที่ 3 กันยายน' }).click();
     
     // Select time (12:00)
-    await page.getByRole('button', { name: '10:00' }).click();
+    await page.getByRole('button', { name: '18:00' }).click();
     
     // Fill customer info
     await page.getByRole('textbox', { name: 'ชื่อ-นามสกุล' }).fill('Customer A');
