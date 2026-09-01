@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Nebula Localhost - Booking Flow', () => {
+test.describe('Nebula Production - Booking Flow', () => {
   test('Customer A books', async ({ page }) => {
     await page.goto('https://nebula-spa.bimav.workers.dev/book');
     
