@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Nebula Localhost - Smoke Tests', () => {
   test('landing page loads', async ({ page }) => {
-    await page.goto('http://localhost:8787');
+    await page.goto('https://nebula-spa.bimav.workers.dev');
     
     await page.waitForLoadState('domcontentloaded');
     

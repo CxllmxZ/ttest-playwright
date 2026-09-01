@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Nebula Localhost - Booking Flow', () => {
   test('Customer A books', async ({ page }) => {
-    await page.goto('http://localhost:8787/book');
+    await page.goto('https://nebula-spa.bimav.workers.dev/book');
     
     // Select service
     await page.getByRole('button', { name: 'นวดไทย ฿ 350 60 นาที' }).click();
