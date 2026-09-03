@@ -43,7 +43,7 @@ echo Browser + Inspector will open
 echo.
 
 REM Launch codegen (uses same Chromium as setup.bat installed)
-call pnpm exec playwright codegen %URL%
+call npx playwright codegen %URL%
 
 echo.
 echo Codegen closed
