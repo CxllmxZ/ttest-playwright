@@ -79,7 +79,7 @@ function Invoke-PlaywrightTest {
     # Playwright CLI - use forward slashes
     $pathForPlaywright = $Path -replace '\\', '/'
     
-    & pnpm exec playwright test $pathForPlaywright
+    & npx playwright test $pathForPlaywright
     
     Write-Host ""
     Write-Host "==========================================" -ForegroundColor Cyan
