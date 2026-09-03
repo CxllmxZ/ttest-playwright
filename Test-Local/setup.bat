@@ -66,17 +66,6 @@ if %ERRORLEVEL% NEQ 0 (
 echo [OK] Chromium installed
 echo.
 
-REM ---- Build ttest ----
-echo Building ttest...
-call pnpm build
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Build failed
-    pause
-    exit /b 1
-)
-echo [OK] Build complete
-echo.
-
 echo ==========================================
 echo   Setup complete!
 echo ==========================================
