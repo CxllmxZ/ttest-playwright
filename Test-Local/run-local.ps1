@@ -90,6 +90,12 @@ function Invoke-PlaywrightTest {
     } else {
         Write-Host "[WARNING] No report generated" -ForegroundColor Yellow
     }
+
+    Write-Host ""
+    Write-Host "==========================================" -ForegroundColor Cyan
+    Write-Host "Press any key to return to the menu..." -ForegroundColor Yellow
+    # Wait for any key without displaying the pressed key
+    ReadKey($true)
 }
 
 # ===== Main Loop =====

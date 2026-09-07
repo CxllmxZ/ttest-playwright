@@ -6,7 +6,7 @@ REM Change to repo root
 cd /d "%~dp0.."
 
 REM Set Playwright to use local browsers (same as setup.bat installed)
-set PLAYWRIGHT_BROWSERS_PATH=%CD%\browsers
+REM set PLAYWRIGHT_BROWSERS_PATH=%CD%\browsers
 
 echo ==========================================
 echo   Playwright Codegen
