@@ -1,6 +1,6 @@
 @echo off
 setlocal
-chcp 65001 >nul
+chcp 437 >nul
 
 REM Launch PowerShell script with execution policy bypass
 REM (avoids ExecutionPolicy issues without changing system settings)

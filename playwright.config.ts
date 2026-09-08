@@ -16,7 +16,7 @@ export default defineConfig({
   
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
-    ['list'],
+    ['line'],
   ],
   
   use: {

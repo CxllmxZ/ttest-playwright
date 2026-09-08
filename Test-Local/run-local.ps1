@@ -4,13 +4,18 @@
 # ===== Setup =====
 $ErrorActionPreference = 'Stop'
 
+Remove-Item Env:FORCE_COLOR -ErrorAction SilentlyContinue
+# Reduce terminal formatting that can cause write EIO
+$env:CI = "true"
+$env:NO_COLOR = "1"
+
 # Change to repo root (parent of Test-Local)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 Set-Location $repoRoot
 
 # Set Playwright to use local browsers
-$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $repoRoot "browsers"
+# $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $repoRoot "browsers"
 
 # ===== Verify Setup =====
 if (-not (Test-Path "node_modules")) {
@@ -95,7 +100,7 @@ function Invoke-PlaywrightTest {
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "Press any key to return to the menu..." -ForegroundColor Yellow
     # Wait for any key without displaying the pressed key
-    ReadKey($true)
+    [Console]::ReadKey($true) | Out-Null
 }
 
 # ===== Main Loop =====
