@@ -75,16 +75,6 @@ if errorlevel 1 (
 echo [SUCCESS] Playwright installed
 echo.
 
-REM ---- Install Chromium ----
-echo Installing Chromium browser 200MB...
-echo This may take 1-3 minutes
-call pnpm exec playwright install chromium
-if errorlevel 1 (
-    echo [ERROR] Failed to install Chromium
-    pause
-    exit /b 1
-)
-
 REM ==========================================
 REM Check Chromium in shared browser cache
 REM ==========================================
