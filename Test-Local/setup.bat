@@ -121,6 +121,76 @@ if not errorlevel 1 (
 echo.
 
 REM ==========================================
+REM Check Node.js Type Definitions
+REM ==========================================
+echo Checking @types/node...
+
+node.exe -e "require.resolve('@types/node/package.json')" >nul 2>&1
+
+if not errorlevel 1 (
+    echo [SUCCESS] @types/node is already installed
+) else (
+    echo [INFO] @types/node was not found
+    echo Installing @types/node...
+
+    call pnpm.cmd add -D @types/node --reporter=append-only
+
+    if errorlevel 1 (
+        echo [ERROR] Failed to install @types/node
+        pause
+        exit /b 1
+    )
+
+    REM Verify again after installation
+    node.exe -e "require.resolve('@types/node/package.json')" >nul 2>&1
+
+    if errorlevel 1 (
+        echo [ERROR] @types/node is still unavailable after installation
+        pause
+        exit /b 1
+    )
+
+    echo [SUCCESS] @types/node installed successfully
+)
+echo.
+
+REM ==========================================
+REM Check TypeScript
+REM ==========================================
+echo Checking TypeScript...
+
+call pnpm.cmd exec tsc --version >nul 2>&1
+
+if not errorlevel 1 (
+    echo [SUCCESS] TypeScript is already installed
+    call pnpm.cmd exec tsc --version
+) else (
+    echo [INFO] TypeScript was not found
+    echo Installing TypeScript...
+
+    call pnpm.cmd add -D typescript --reporter=append-only
+
+    if errorlevel 1 (
+        echo [ERROR] Failed to install TypeScript
+        pause
+        exit /b 1
+    )
+
+    REM Verify again after installation
+    call pnpm.cmd exec tsc --version >nul 2>&1
+
+    if errorlevel 1 (
+        echo [ERROR] TypeScript is still unavailable after installation
+        pause
+        exit /b 1
+    )
+
+    echo [SUCCESS] TypeScript installed successfully
+    call pnpm.cmd exec tsc --version
+)
+echo.
+
+REM ==========================================
 REM Display environment information
 REM ==========================================
 echo Playwright information:

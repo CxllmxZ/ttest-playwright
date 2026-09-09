@@ -5,9 +5,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Playwright
-.playwright-report/
+# Playwright output
+playwright-report/
 test-results/
+blob-report/
 
 # IDE
 .vscode/
@@ -22,5 +23,13 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 
-# Local Playwright browsers (installed per-machine via setup.bat)
+# Local Playwright browsers
 browsers/
+
+# Microsoft authentication
+Authen/Microsoft/profile/*
+Authen/Microsoft/state.json
+!Authen/Microsoft/profile/.gitkeep
+
+# Form login authentication state
+Test-Local/**/_login/state.json
