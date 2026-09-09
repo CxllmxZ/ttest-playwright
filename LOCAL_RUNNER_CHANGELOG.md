@@ -256,17 +256,149 @@ Authen/Microsoft/
 
 ### Microsoft Codegen
 
-`run-codegen.bat` ใช้:
+เมื่อ Access Flow กำหนด `authType = microsoft` ระบบ Codegen จะใช้:
 
 ```text
 --user-data-dir=Authen/Microsoft/profile
 ```
 
-ทำให้ Codegen เปิดด้วย Microsoft Profile เดิมและไม่ต้องเริ่ม Session ใหม่ทุกครั้ง
+ทำให้ Codegen เปิดด้วย Microsoft Profile เดิมและไม่ต้องเริ่ม Microsoft Session ใหม่ทุกครั้ง
+
+Codegen ไม่ได้ใช้ `state.json` ในกรณีนี้ เพราะ `--user-data-dir` โหลดข้อมูลจาก Persistent Browser Profile โดยตรง ส่วน `state.json` ใช้กับ `playwright test` ผ่าน `playwright.config.ts`
 
 ---
 
-## 7. Universal Local Runner
+## 7. Universal Codegen Runner
+
+Codegen ถูกออกแบบใหม่ให้ใช้โครงสร้าง Project และ Access Flow ชุดเดียวกับ Local Test Runner
+
+โครงสร้างไฟล์:
+
+```text
+Test-Local/
+├── run-codegen.bat
+└── run-codegen.ps1
+```
+
+หน้าที่ของแต่ละไฟล์:
+
+```text
+run-codegen.bat
+→ เป็น Launcher สำหรับเรียก PowerShell
+
+run-codegen.ps1
+→ ตรวจ Project
+→ ตรวจ Access Flow
+→ อ่าน project.config.json
+→ เลือกวิธีเปิด Codegen ตาม authType
+→ วนรับ URL จนกว่าผู้ใช้จะออก
+```
+
+### Codegen สำหรับ `authType = none`
+
+เปิด Codegen ด้วย Browser Session ใหม่ โดยไม่โหลด Profile หรือ Authentication State:
+
+```text
+Project / Public Flow
+→ Clean Browser Session
+→ กรอก URL
+→ เปิด Chromium และ Playwright Inspector
+```
+
+เหมาะกับ Public Website หรือระบบที่ไม่ต้อง Login
+
+### Codegen สำหรับ `authType = microsoft`
+
+เปิด Codegen ด้วย Microsoft Persistent Profile กลาง:
+
+```text
+Authen/Microsoft/profile
+```
+
+Flow:
+
+```text
+เลือก Microsoft Access Flow
+→ ตรวจ Microsoft Profile
+→ กรอก URL
+→ เปิด Codegen ด้วย Microsoft Session เดิม
+```
+
+### Codegen สำหรับ `authType = form`
+
+Form Login รองรับ Codegen 2 Mode:
+
+```text
+1. Record login flow
+2. Record tests after login
+```
+
+#### Record login flow
+
+ใช้ Clean Browser Session เพื่อให้ Codegen เห็นหน้า Login และบันทึกขั้นตอนดังนี้:
+
+```text
+กรอก Username
+→ กรอก Password
+→ กด Login
+→ ตรวจผล Login
+```
+
+เหมาะกับ Test Case เช่น Login สำเร็จ, Password ผิด และ Required Validation
+
+#### Record tests after login
+
+โหลด Authentication State ของ Access Flow จาก:
+
+```text
+Test-Local/<project>/<access-flow>/_login/state.json
+```
+
+จากนั้น Codegen เริ่มจากสถานะที่ Login แล้ว เหมาะกับการบันทึก Business Flow หลัง Login เช่น Dealer Model, Search, Add, Edit, Import และ Export
+
+### URL Loop
+
+หลังเลือก Project, Access Flow และ Codegen Mode แล้ว ระบบจะจำค่าที่เลือกไว้ตลอดการทำงานหนึ่งรอบ:
+
+```text
+เลือก Project ครั้งเดียว
+→ เลือก Access Flow ครั้งเดียว
+→ เลือก Form Mode ครั้งเดียวเมื่อจำเป็น
+→ กรอก URL
+→ เปิด Codegen
+→ ปิด Chromium หรือ Inspector
+→ กลับมารับ URL ใหม่ของ Flow เดิม
+```
+
+ผู้ใช้สามารถกรอก URL ใหม่ได้เรื่อย ๆ โดยไม่ต้องกลับไปเลือก Project อีกครั้ง
+
+หากต้องการออก ให้กรอก:
+
+```text
+X
+```
+
+หากต้องการใช้ Project หรือ Access Flow อื่น ให้ปิด Codegen Runner แล้วเปิด `run-codegen.bat` ใหม่
+
+### สรุป Codegen Mode
+
+```text
+authType = none
+→ Standard Codegen + Clean Session
+
+authType = microsoft
+→ Codegen + Authen/Microsoft/profile
+
+authType = form + Record login flow
+→ Standard Codegen + Clean Session
+
+authType = form + Record tests after login
+→ Codegen + _login/state.json
+```
+
+---
+
+## 9. Universal Local Runner
 
 `run-local.ps1` ถูกออกแบบใหม่ให้ตรวจ Folder โดยอัตโนมัติ ตามลำดับ:
 
@@ -313,7 +445,7 @@ Folder ที่ขึ้นต้นด้วย .
 
 ---
 
-## 8. รูปแบบการรัน Test
+## 9. รูปแบบการรัน Test
 
 Runner รองรับ 3 ระดับหลัก:
 
@@ -345,7 +477,7 @@ Runner ค้นหา Spec File ก่อน และส่งรายชื�
 
 ---
 
-## 9. การส่ง Authentication ให้ Playwright
+## 10. การส่ง Authentication ให้ Playwright
 
 `run-local.ps1` อ่าน `project.config.json` ของ Access Flow แล้วตั้งค่า:
 
@@ -375,7 +507,7 @@ Run Microsoft Flow
 
 ---
 
-## 10. Car Model Test Case
+## 11. Car Model Test Case
 
 เพิ่ม Test Case จริงสำหรับ WEF Car Model ภายใต้:
 
@@ -406,7 +538,7 @@ i4   | eDrive40 M Sport QA-2026-A03
 
 ---
 
-## 11. Setup Script และ Dependencies
+## 12. Setup Script และ Dependencies
 
 เพิ่มการตรวจสอบ Package ที่จำเป็นใน `setup.bat`:
 
@@ -439,7 +571,7 @@ Chromium ใช้ Playwright Shared Browser Cache ของ Windows แทน�
 
 ---
 
-## 12. HTML Report
+## 13. HTML Report
 
 `playwright.config.ts` ใช้ Reporter สองแบบ:
 
@@ -458,7 +590,7 @@ Generated Report ถูกนำออกจาก Git Tracking และเพ�
 
 ---
 
-## 13. Git Ignore และข้อมูลสำคัญ
+## 14. Git Ignore และข้อมูลสำคัญ
 
 เพิ่มกฎเพื่อป้องกัน Generated Files และ Authentication Data ถูก Commit:
 
@@ -496,7 +628,7 @@ Test-Local/**/_login/state.json
 
 ---
 
-## 14. ผลลัพธ์หลังการปรับปรุง
+## 15. ผลลัพธ์หลังการปรับปรุง
 
 ระบบรองรับสถานการณ์ต่อไปนี้แล้ว:
 
@@ -527,20 +659,31 @@ Project Config
 
 ---
 
-## 15. งานที่ยังเหลือ
+## 16. งานที่ยังเหลือ
 
 - Implement Dealer Form Login
 - สร้าง `_login/state.json` สำหรับ Dealer Login
-- ปรับ `playwright.config.ts` ให้รองรับ Form State อย่างสมบูรณ์
+- ทำ Form Login Setup เพื่อสร้าง `_login/state.json` ของแต่ละ Access Flow
 - เพิ่ม Dealer Model Test Cases
-- ตรวจและปรับ Run All Scope ให้ส่ง Spec File จริงทุกกรณี
+- ทดสอบ Universal Codegen ครบทั้ง `none`, `microsoft` และ `form`
+- ตรวจสอบ Run All Modules, Run All Tests in Module และ Specific Test File ให้ใช้รายชื่อ Spec File จริงในทุก Scope
 - พิจารณาแยก Local Retry ออกจากตัวแปร `CI`
 - ปรับ Console Encoding หากต้องการแสดงชื่อ Test ภาษาไทยโดยไม่เกิด `write EIO`
 - ปรับ Locator ที่ยังอิงลำดับ Element เช่น `span.first()` ให้ใช้ Label หรือ Test ID
 
 ---
 
-## 16. Folder Contract สำหรับ Project ใหม่
+### Universal Codegen
+
+```text
+Project และ Access Flow ใช้ Folder Contract เดียวกับ run-local
+→ none ใช้ Clean Session
+→ microsoft ใช้ Microsoft Profile
+→ form เลือกบันทึก Login Flow หรือ Business Flow หลัง Login
+→ ปิด Codegen แล้วกลับมากรอก URL ใหม่ใน Flow เดิม
+```
+
+## 17. Folder Contract สำหรับ Project ใหม่
 
 เมื่อเพิ่ม Project ใหม่ ให้ใช้โครงสร้างนี้:
 
