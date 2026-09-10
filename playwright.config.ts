@@ -5,33 +5,72 @@ import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 const authType = process.env.AUTH_TYPE?.toLowerCase() ?? 'none';
+
 const authStatePath = process.env.AUTH_STATE_PATH
   ? path.resolve(process.env.AUTH_STATE_PATH)
   : undefined;
 
+// AUTH_KIND is only relevant for form authentication.
+// Microsoft always uses storageState mechanism.
+const authKind = (
+  process.env.AUTH_KIND ?? 'storageState'
+).toLowerCase();
+
 let storageState: string | undefined;
 
-if (authType === 'microsoft') {
+if (authType === 'microsoft' || authType === 'form') {
   if (!authStatePath) {
     throw new Error(
-      'AUTH_STATE_PATH is required when AUTH_TYPE is microsoft.'
+      `AUTH_STATE_PATH is required when AUTH_TYPE is ${authType}.`
     );
   }
 
   if (!fs.existsSync(authStatePath)) {
     throw new Error(
       [
-        'Microsoft authentication state was not found.',
+        `${authType} authentication state was not found.`,
         `Expected: ${authStatePath}`,
-        'Run Authen\\Microsoft\\setup-microsoft-auth.bat first.',
+        '',
+        authType === 'microsoft'
+          ? 'Run Authen\\Microsoft\\setup-microsoft-auth.bat first.'
+          : 'Run Authen\\Form-Login\\setup-form-auth.bat first.',
       ].join('\n')
     );
   }
 
-  storageState = authStatePath;
+  if (authKind === 'storagestate') {
+    // Standard Playwright storageState — cookies + localStorage
+    storageState = authStatePath;
 
-  console.log('[AUTH] Type: Microsoft');
-  console.log(`[AUTH] State: ${authStatePath}`);
+    console.log(`[AUTH] Type: ${authType} (storageState)`);
+    console.log(`[AUTH] State: ${authStatePath}`);
+  } else if (authKind === 'sessionstorage') {
+    // sessionStorage cannot be injected via storageState config.
+    // Requires a custom test fixture using context.addInitScript().
+    throw new Error(
+      [
+        'AUTH_KIND=sessionStorage is not supported at config level.',
+        '',
+        'sessionStorage is tab-scoped by HTML5 spec and cannot be',
+        'loaded via Playwright storageState.',
+        '',
+        'A custom test fixture that calls context.addInitScript()',
+        'is required. This is planned for WEF Dealer support.',
+        '',
+        `State: ${authStatePath}`,
+      ].join('\n')
+    );
+  } else {
+    throw new Error(
+      [
+        `Unknown AUTH_KIND: ${authKind}`,
+        '',
+        'Supported values:',
+        '- storageState',
+        '- sessionStorage',
+      ].join('\n')
+    );
+  }
 } else {
   console.log(`[AUTH] Type: ${authType}`);
 }

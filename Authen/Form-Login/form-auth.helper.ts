@@ -14,6 +14,12 @@ export type SaveSessionStorageOptions = {
   waitBeforeSave?: number;
 };
 
+export type SaveStorageStateOptions = {
+  page: Page;
+  outputPath: string;
+  waitBeforeSave?: number;
+};
+
 /**
  * Read Form Login credentials and output path
  * from environment variables prepared by setup-form-auth.ps1.
@@ -74,6 +80,11 @@ export function getFormLoginCredentials():
 /**
  * Read sessionStorage from the authenticated page
  * and save it as JSON for later reuse.
+ *
+ * Use this for sessionStorage-based authentication
+ * such as WEF Dealer.
+ * For cookie-based authentication such as NextAuth,
+ * use saveStorageState() instead.
  */
 export async function saveSessionStorage({
   page,
@@ -182,5 +193,117 @@ export async function saveSessionStorage({
 
   console.log(
     `[AUTH] Session Storage saved: ${outputPath}`
+  );
+}
+
+/**
+ * Save cookies and localStorage via Playwright's
+ * built-in storageState() for later reuse.
+ *
+ * Use this for cookie-based authentication such as
+ * NextAuth or standard session cookies.
+ * For sessionStorage-based authentication such as
+ * WEF Dealer, use saveSessionStorage() instead.
+ */
+export async function saveStorageState({
+  page,
+  outputPath,
+  waitBeforeSave = 1_000,
+}: SaveStorageStateOptions): Promise<void> {
+  if (!outputPath) {
+    throw new Error(
+      'Storage State output path is required.'
+    );
+  }
+
+  // Allow the application to finish storing authentication data
+  if (waitBeforeSave > 0) {
+    await page.waitForTimeout(waitBeforeSave);
+  }
+
+  console.log(`[AUTH] Final URL: ${page.url()}`);
+
+  const state = await page.context().storageState();
+
+  const cookieCount = state.cookies.length;
+
+  const localStorageCount = state.origins.reduce(
+    (sum, origin) => sum + origin.localStorage.length,
+    0
+  );
+
+  console.log(
+    `[AUTH] Cookies: ${cookieCount}`
+  );
+
+  console.log(
+    `[AUTH] Local Storage items: ${localStorageCount}`
+  );
+
+  if (cookieCount > 0) {
+    const cookieNames = state.cookies
+      .map((cookie) => cookie.name)
+      .join(', ');
+
+    console.log(
+      `[AUTH] Cookie names: ${cookieNames}`
+    );
+  }
+
+  if (localStorageCount > 0) {
+    const localStorageKeys = state.origins
+      .flatMap((origin) =>
+        origin.localStorage.map((entry) => entry.name)
+      )
+      .join(', ');
+
+    console.log(
+      `[AUTH] Local Storage keys: ${localStorageKeys}`
+    );
+  }
+
+  if (cookieCount === 0 && localStorageCount === 0) {
+    throw new Error(
+      [
+        'Form Login succeeded, but storageState is empty.',
+        '',
+        `Final URL: ${page.url()}`,
+        '',
+        'No cookies or localStorage found.',
+        'If authentication is in sessionStorage,',
+        'use saveSessionStorage() instead.',
+      ].join('\n')
+    );
+  }
+
+  fs.mkdirSync(
+    path.dirname(outputPath),
+    {
+      recursive: true,
+    }
+  );
+
+  fs.writeFileSync(
+    outputPath,
+    JSON.stringify(state, null, 2),
+    'utf8'
+  );
+
+  if (!fs.existsSync(outputPath)) {
+    throw new Error(
+      `Storage State file was not created: ${outputPath}`
+    );
+  }
+
+  const savedFile = fs.statSync(outputPath);
+
+  if (savedFile.size === 0) {
+    throw new Error(
+      `Storage State file is empty: ${outputPath}`
+    );
+  }
+
+  console.log(
+    `[AUTH] Storage State saved: ${outputPath}`
   );
 }

@@ -370,7 +370,7 @@ function Get-ProjectAuthentication {
         "form" {
             $formStatePath = Join-Path `
                 $AccessFlowPath `
-                "_login\state.json"
+                "_login\session-storage.json"
 
             if (-not (Test-Path $formStatePath)) {
                 $errorMessage = @(
@@ -593,7 +593,7 @@ function Invoke-PlaywrightTest {
             "test"
         ) + $playwrightTestPaths
 
-        & $playwrightCommand @playwrightArguments
+        & $playwrightCommand @playwrightArguments | Out-Host
 
         $testExitCode = $LASTEXITCODE
     }
