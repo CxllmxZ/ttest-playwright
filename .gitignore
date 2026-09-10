@@ -32,4 +32,4 @@ Authen/Microsoft/state.json
 !Authen/Microsoft/profile/.gitkeep
 
 # Form login authentication state
-Test-Local/**/_login/state.json
+Test-Local/**/_login/session-storage.json
