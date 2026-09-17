@@ -12,6 +12,8 @@ import {
   applySearchControl,
 } from './dashboard-search.helper';
 
+import { verifySearchResult } from '../../_shared/verify-helpers';
+
 const APPLICATION_URL =
   'https://apps-uat.tokiomarinesafety.co.th/wfe/';
 
@@ -210,108 +212,6 @@ async function clickSearch(
 }
 
 /**
- * ตรวจผลการค้นหา
- */
-async function verifySearchResult(
-  page: Page,
-  expectedText?: string
-): Promise<void> {
-  const resultTables = page
-    .locator('table')
-    .filter({
-      has: page.locator('tbody'),
-    });
-
-  const tableCount = await resultTables.count();
-
-  console.log(
-    `Search result table count: ${tableCount}`
-  );
-
-  await expect(
-    resultTables.first()
-  ).toBeVisible({
-    timeout: 10_000,
-  });
-
-  /**
-   * หาก Test Case ไม่กำหนด expectedText
-   * จะตรวจเพียงว่า Result Table แสดงอยู่
-   */
-  if (!expectedText) {
-    return;
-  }
-
-  console.log(
-    `Expected text: ${expectedText}`
-  );
-
-  const matchingRows = resultTables
-    .locator('tbody tr')
-    .filter({
-      hasText: expectedText,
-    });
-
-  const matchingRowCount =
-    await matchingRows.count();
-
-  console.log(
-    `Matching row count: ${matchingRowCount}`
-  );
-
-  if (matchingRowCount === 0) {
-    const noDataMessage = page.getByText(
-      'ไม่พบข้อมูล',
-      {
-        exact: true,
-      }
-    );
-
-    const hasNoData = await noDataMessage
-      .isVisible()
-      .catch(() => false);
-
-    if (hasNoData) {
-      throw new Error(
-        [
-          'Search returned no data.',
-          `Expected text: ${expectedText}`,
-        ].join(' ')
-      );
-    }
-
-    // แสดงข้อมูลใน Table สำหรับ Debug
-    for (
-      let index = 0;
-      index < tableCount;
-      index++
-    ) {
-      const tableText = await resultTables
-        .nth(index)
-        .innerText()
-        .catch(() => '');
-
-      console.log(
-        `Table ${index} content:\n${tableText}`
-      );
-    }
-  }
-
-  await expect(
-    matchingRows.first(),
-    `Expected to find "${expectedText}" in search results`
-  ).toBeVisible({
-    timeout: 10_000,
-  });
-
-  console.log(
-    `Matched result:\n${await matchingRows
-      .first()
-      .innerText()}`
-  );
-}
-
-/**
  * Dashboard Search Tests
  */
 test.describe('Dashboard Search', () => {
@@ -402,10 +302,9 @@ test.describe('Dashboard Search', () => {
         await test.step(
           'Verify search result',
           async () => {
-            await verifySearchResult(
-              page,
-              testData.expectedText
-            );
+            await verifySearchResult(page, {
+              expectedText: testData.expectedText,
+            });
           }
         );
       }

@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 Remove-Item Env:FORCE_COLOR -ErrorAction SilentlyContinue
 $env:CI = "true"
 $env:NO_COLOR = "1"
+$env:PLAYWRIGHT_LOCAL_RUN = "1"
 
 # Change to repository root
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

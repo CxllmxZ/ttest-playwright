@@ -91,7 +91,7 @@ async function applyControl(
         'textbox',
         {
           name: controlData.accessibleName,
-          exact: true,
+          exact: false,
         }
       );
 

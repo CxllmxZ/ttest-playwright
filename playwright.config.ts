@@ -89,8 +89,8 @@ export default defineConfig({
     timeout: 5_000,
   },
 
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 4 : 1,
+  retries: process.env.CI && !process.env.PLAYWRIGHT_LOCAL_RUN ? 2 : 0,
+  workers: process.env.CI && !process.env.PLAYWRIGHT_LOCAL_RUN ? 4 : 1,
 
   reporter: [
     [
