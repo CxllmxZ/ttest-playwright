@@ -1,35 +1,37 @@
 import { test, expect } from '@playwright/test';
 
+const timestamp = Date.now();
+
 const carModelTestCases = [
   {
     testCaseId: 'TC-CAR-ADD-004',
     carModelName: '218i',
-    carSubModelName: 'Gran Coupe M Sport QA-2026-A01',
+    carSubModelName: `Gran Coupe M Sport QA-${timestamp}-01`,
     modelYear: '2026',
     engineCapacity: '1499',
     seatCount: '5',
-    sumInsured: '1,850,000',
-    sellingPrice: '2,199,000',
+    sumInsured: '1,900,000',
+    sellingPrice: '2,250,000',
   },
   {
     testCaseId: 'TC-CAR-ADD-005',
     carModelName: '330e',
-    carSubModelName: 'M Sport Pro QA-2026-A02',
+    carSubModelName: `M Sport Pro QA-${timestamp}-02`,
     modelYear: '2026',
     engineCapacity: '1998',
     seatCount: '5',
-    sumInsured: '2,600,000',
-    sellingPrice: '3,099,000',
+    sumInsured: '2,700,000',
+    sellingPrice: '3,250,000',
   },
   {
     testCaseId: 'TC-CAR-ADD-006',
     carModelName: 'i4',
-    carSubModelName: 'eDrive40 M Sport QA-2026-A03',
+    carSubModelName: `eDrive40 M Sport QA-${timestamp}-03`,
     modelYear: '2026',
     engineCapacity: '250',
     seatCount: '5',
-    sumInsured: '3,500,000',
-    sellingPrice: '4,200,000',
+    sumInsured: '3,800,000',
+    sellingPrice: '4,500,000',
   },
 ];
 
