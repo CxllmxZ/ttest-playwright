@@ -33,18 +33,7 @@ Authen/Microsoft/state.json
 
 # Form login authentication state
 Test-Local/**/_login/session-storage.json
-Test-Local/**/_login/*
-!Test-Local/**/_login/*.ts
-!Test-Local/**/_login/*.md
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# Additional Playwright/test artifacts
-.playwright/
-allure-results/
-allure-report/
-coverage/
+# AI Agent artifacts       ← ← ← เพิ่ม 3 บรรทัดนี้
+.agent-cache/
+**/_locators/
