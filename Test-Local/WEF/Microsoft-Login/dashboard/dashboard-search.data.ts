@@ -26,11 +26,11 @@ export const dashboardSearchTestCases:
         controlType: 'namedTextbox',
         accessibleName:
           'รหัส Dealer / ชื่อ Dealer',
-        value: 'DEALER001',
+        value: 'EVMFH00002',
       },
 
       runInitialSearch: true,
-      expectedText: 'DEALER001',
+      expectedText: 'EVMFH00002',
     },
 
     {
@@ -41,11 +41,11 @@ export const dashboardSearchTestCases:
         controlType: 'namedTextbox',
         accessibleName:
           'หมายเลขตัวถัง / หมายเลขเครื่อง',
-        value: 'CHASSIS001',
+        value: 'EEEEEEEEEEEEEEEEE',
       },
 
       runInitialSearch: true,
-      expectedText: 'CHASSIS001',
+      expectedText: 'EEEEEEEEEEEEEEEEE',
     },
 
     {
