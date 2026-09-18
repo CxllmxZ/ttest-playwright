@@ -1,5 +1,5 @@
 # analyze-project.ps1
-# Scan Test-Local/ folder → generate .agent-cache/project-structure.json
+# Scan Test-Local/ folder -> generate .agent-cache/project-structure.json
 # Full metadata: control types, test case IDs, file paths
 
 $ErrorActionPreference = "Stop"
@@ -97,37 +97,29 @@ function Get-AuthType {
 
 function Get-FeatureFiles {
     param(
-        [string]$FeaturePath,
+        [string]$BasePath,
         [string]$FeatureName
     )
 
     $files = @{}
 
-    # Try convention-based naming first: <feature>.spec.ts etc.
+    # Convention naming: <feature>.spec.ts, .helper.ts, .types.ts, .data.ts
     $conventions = @{
-        spec = "$FeatureName.spec.ts"
+        spec   = "$FeatureName.spec.ts"
         helper = "$FeatureName.helper.ts"
-        types = "$FeatureName.types.ts"
-        data = "$FeatureName.data.ts"
+        types  = "$FeatureName.types.ts"
+        data   = "$FeatureName.data.ts"
     }
 
     foreach ($key in $conventions.Keys) {
-        $filePath = Join-Path $FeaturePath $conventions[$key]
+        $filePath = Join-Path $BasePath $conventions[$key]
         if (Test-Path $filePath) {
             $files[$key] = $conventions[$key]
         }
     }
 
-    # If convention didn't match, list any spec files
-    if (-not $files.ContainsKey("spec")) {
-        $specFiles = @(Get-ChildItem -Path $FeaturePath -Filter "*.spec.ts" -File -ErrorAction SilentlyContinue)
-        if ($specFiles.Count -gt 0) {
-            $files["spec"] = @($specFiles | ForEach-Object { $_.Name })
-        }
-    }
-
-    # Locators folder (gitignored, but list files if present)
-    $locatorsPath = Join-Path $FeaturePath "_locators"
+    # Locators folder (gitignored, list if present)
+    $locatorsPath = Join-Path $BasePath "_locators"
     if (Test-Path $locatorsPath) {
         $locatorFiles = @(Get-ChildItem -Path $locatorsPath -Filter "*.ts" -File -ErrorAction SilentlyContinue)
         if ($locatorFiles.Count -gt 0) {
@@ -145,6 +137,37 @@ function Get-Structure {
         return "4-file"
     }
     return "1-file"
+}
+
+function Build-Feature {
+    param(
+        [string]$BasePath,
+        [string]$FeatureName
+    )
+
+    $files = Get-FeatureFiles -BasePath $BasePath -FeatureName $FeatureName
+    $structure = Get-Structure -Files $files
+
+    $controlTypes = @()
+    if ($files.ContainsKey("types")) {
+        $typesFullPath = Join-Path $BasePath $files["types"]
+        $controlTypes = Get-ControlTypes -FilePath $typesFullPath
+    }
+
+    $testCases = @()
+    if ($files.ContainsKey("data")) {
+        $dataFullPath = Join-Path $BasePath $files["data"]
+        $testCases = Get-TestCases -FilePath $dataFullPath
+    }
+
+    return @{
+        name = $FeatureName
+        structure = $structure
+        files = $files
+        controlTypes = $controlTypes
+        testCaseCount = $testCases.Count
+        testCases = $testCases
+    }
 }
 
 # ============================================================
@@ -175,54 +198,28 @@ foreach ($projectDir in $projectDirs) {
             $featureDirs = @(Get-ChildItem -Path $moduleDir.FullName -Directory | Where-Object { $_.Name -notlike "_*" })
 
             if ($featureDirs.Count -eq 0) {
-                # Flat module (no feature subfolders) - treat spec files as features
+                # Flat module: spec files directly in module folder
+                # Sibling files use same feature prefix (e.g., dashboard-search.helper.ts)
                 $specFiles = @(Get-ChildItem -Path $moduleDir.FullName -Filter "*.spec.ts" -File)
 
                 foreach ($specFile in $specFiles) {
                     $featureName = $specFile.BaseName -replace "\.spec$", ""
-                    $files = @{ spec = $specFile.Name }
 
-                    $features += @{
-                        name = $featureName
-                        structure = "1-file"
-                        files = $files
-                        controlTypes = @()
-                        testCaseCount = 0
-                        testCases = @()
-                    }
+                    $feature = Build-Feature -BasePath $moduleDir.FullName -FeatureName $featureName
+                    $features += $feature
 
-                    Write-Host "        Feature (1-file): $featureName" -ForegroundColor Gray
+                    Write-Host "        Feature ($($feature.structure)): $featureName [$($feature.testCaseCount) cases, $($feature.controlTypes.Count) types]" -ForegroundColor Gray
                 }
             }
             else {
+                # Nested: each subfolder = one feature
                 foreach ($featureDir in $featureDirs) {
                     $featureName = $featureDir.Name
 
-                    $files = Get-FeatureFiles -FeaturePath $featureDir.FullName -FeatureName $featureName
-                    $structure = Get-Structure -Files $files
+                    $feature = Build-Feature -BasePath $featureDir.FullName -FeatureName $featureName
+                    $features += $feature
 
-                    $controlTypes = @()
-                    if ($files.ContainsKey("types")) {
-                        $typesFullPath = Join-Path $featureDir.FullName $files["types"]
-                        $controlTypes = Get-ControlTypes -FilePath $typesFullPath
-                    }
-
-                    $testCases = @()
-                    if ($files.ContainsKey("data")) {
-                        $dataFullPath = Join-Path $featureDir.FullName $files["data"]
-                        $testCases = Get-TestCases -FilePath $dataFullPath
-                    }
-
-                    $features += @{
-                        name = $featureName
-                        structure = $structure
-                        files = $files
-                        controlTypes = $controlTypes
-                        testCaseCount = $testCases.Count
-                        testCases = $testCases
-                    }
-
-                    Write-Host "        Feature ($structure): $featureName [$($testCases.Count) cases, $($controlTypes.Count) types]" -ForegroundColor Gray
+                    Write-Host "        Feature ($($feature.structure)): $featureName [$($feature.testCaseCount) cases, $($feature.controlTypes.Count) types]" -ForegroundColor Gray
                 }
             }
 
@@ -262,14 +259,7 @@ $json = $output | ConvertTo-Json -Depth 20
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($outputPath, $json, $utf8NoBom)
 
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "  Done" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Output: $outputPath" -ForegroundColor Green
-Write-Host "Projects: $($projects.Count)" -ForegroundColor Green
-
+# Summary counters
 $totalFeatures = 0
 $totalTestCases = 0
 foreach ($p in $projects) {
@@ -283,6 +273,13 @@ foreach ($p in $projects) {
     }
 }
 
-Write-Host "Features: $totalFeatures" -ForegroundColor Green
+Write-Host ""
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "  Done" -ForegroundColor Cyan
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Output:     $outputPath" -ForegroundColor Green
+Write-Host "Projects:   $($projects.Count)" -ForegroundColor Green
+Write-Host "Features:   $totalFeatures" -ForegroundColor Green
 Write-Host "Test cases: $totalTestCases" -ForegroundColor Green
 Write-Host ""
