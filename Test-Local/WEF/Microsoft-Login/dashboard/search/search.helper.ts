@@ -7,7 +7,7 @@ import {
 import type {
   DashboardSearchControl,
   DashboardSearchTestCase,
-} from './dashboard-search.types';
+} from './search.types';
 
 function getIndexedControl(
   controls: Locator,
@@ -131,7 +131,7 @@ async function applyControl(
 
       const option = page.getByRole('option', {
         name: controlData.value,
-        exact: true,
+        exact: false,
       });
 
       await expect(option).toBeVisible({
@@ -159,7 +159,7 @@ async function applyControl(
 
       const option = page.getByRole('option', {
         name: controlData.value,
-        exact: true,
+        exact: false,
       });
 
       await expect(option).toBeVisible({

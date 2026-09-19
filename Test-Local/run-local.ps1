@@ -861,140 +861,326 @@ function Invoke-PlaywrightTest {
                 $modulePath = $selectedModuleDirectory.FullName
             }
 
-            :scopeLoop while ($true) {
-                # ---- Level 4: Select Scope ----
-                $allSpecFiles = Get-SpecFiles `
-                    -Path $modulePath `
-                    -Recursive
+            :featureLoop while ($true) {
+                # ---- Level 4: Select Feature (nested) or skip (flat) ----
+                $features = Get-VisibleDirectories `
+                    -Path $modulePath
 
-                if ($allSpecFiles.Count -eq 0) {
-                    Clear-Host
-
-                    Write-Host "[WARNING] No .spec.ts files were found" `
-                        -ForegroundColor Yellow
-
-                    Write-Host ""
-                    Write-Host "Path: $modulePath"
-
-                    Wait-ForAnyKey `
-                        -Message "Press any key to go back..."
-
-                    continue moduleLoop
-                }
-
-                $scopeMenu = @(
-                    "Run ALL tests in $selectedModule"
-                    "Select SPECIFIC test file"
-                    "[ Back ]"
-                )
-
-                $scopeChoice = Show-Menu `
-                    -Title "$selectedProject / $selectedAccessFlow / $selectedModule" `
-                    -Items $scopeMenu
-
-                if (
-                    $scopeChoice -eq -1 -or
-                    $scopeChoice -eq 2
-                ) {
-                    continue moduleLoop
-                }
-
-                if ($scopeChoice -eq 0) {
-                    $runPath = $modulePath
-                    $runLabel = "ALL tests in $selectedModule"
+                if ($features.Count -eq 0) {
+                    # Flat module: no feature subfolder
+                    $featurePath = $modulePath
+                    $selectedFeature = $selectedModule
+                    $hasFeatureLevel = $false
                 }
                 else {
-                    # ---- Level 5: Select Spec File ----
-                    :fileLoop while ($true) {
-                        $specFileLabels = @(
-                            foreach ($specFile in $allSpecFiles) {
-                                Get-RelativePath `
-                                    -BasePath $modulePath `
-                                    -TargetPath $specFile.FullName
+                    # Nested module: show feature menu
+                    $hasFeatureLevel = $true
+
+                    $featureNames = @(
+                        $features |
+                            Select-Object -ExpandProperty Name
+                    )
+
+                    $featureMenu = @(
+                        "[ Run ALL features in $selectedModule ]"
+                    ) +
+                    $featureNames +
+                    "[ Back ]"
+
+                    $featureChoice = Show-Menu `
+                        -Title "$selectedProject / $selectedAccessFlow / $selectedModule - Select Feature" `
+                        -Items $featureMenu
+
+                    if (
+                        $featureChoice -eq -1 -or
+                        $featureChoice -eq ($featureMenu.Count - 1)
+                    ) {
+                        continue moduleLoop
+                    }
+
+                    if ($featureChoice -eq 0) {
+                        # Run every test under the selected module
+                        $runPath = $modulePath
+                        $runLabel = "ALL features in $selectedModule"
+
+                        :allFeaturesRunLoop while ($true) {
+                            Invoke-PlaywrightTest `
+                                -Path $runPath `
+                                -ProjectName $selectedProject `
+                                -AccessFlowName $selectedAccessFlow `
+                                -AccessFlowPath $accessFlowPath `
+                                -RunLabel $runLabel
+
+                            $postRunMenu = @(
+                                "Run again: $runLabel"
+                                "Change feature"
+                                "Change module"
+                                "Change access flow"
+                                "Change project"
+                                "[ Exit ]"
+                            )
+
+                            $postChoice = Show-Menu `
+                                -Title "Test Complete" `
+                                -Items $postRunMenu
+
+                            switch ($postChoice) {
+                                0 {
+                                    continue allFeaturesRunLoop
+                                }
+
+                                1 {
+                                    continue featureLoop
+                                }
+
+                                2 {
+                                    continue moduleLoop
+                                }
+
+                                3 {
+                                    if ($accessFlows.Count -eq 1) {
+                                        continue mainLoop
+                                    }
+
+                                    continue accessFlowLoop
+                                }
+
+                                4 {
+                                    continue mainLoop
+                                }
+
+                                default {
+                                    Clear-TestAuthentication
+                                    Clear-Host
+                                    Write-Host "Goodbye!" `
+                                        -ForegroundColor Green
+                                    exit 0
+                                }
                             }
-                        )                        
-
-                        $fileMenu = $specFileLabels + "[ Back ]"
-
-                        $fileChoice = Show-Menu `
-                            -Title "Select Test File" `
-                            -Items $fileMenu
-
-                        if (
-                            $fileChoice -eq -1 -or
-                            $fileChoice -eq ($fileMenu.Count - 1)
-                        ) {
-                            continue scopeLoop
                         }
-
-                        $selectedSpecFile =
-                            $allSpecFiles[$fileChoice]
-
-                        $runPath =
-                            $selectedSpecFile.FullName
-
-                        $runLabel =
-                            $specFileLabels[$fileChoice]
-
-                        break fileLoop
+                    }
+                    else {
+                        $selectedFeatureDirectory = $features[$featureChoice - 1]
+                        $selectedFeature = $selectedFeatureDirectory.Name
+                        $featurePath = $selectedFeatureDirectory.FullName
                     }
                 }
 
-                # ---- Run Test and Post-run Menu ----
-                :runLoop while ($true) {
-                    $runResult = Invoke-PlaywrightTest `
-                        -Path $runPath `
-                        -ProjectName $selectedProject `
-                        -AccessFlowName $selectedAccessFlow `
-                        -AccessFlowPath $accessFlowPath `
-                        -RunLabel $runLabel
+                # Build display labels used by scope/run levels
+                $scopeLabelBase = if ($hasFeatureLevel) {
+                    "$selectedModule / $selectedFeature"
+                } else {
+                    $selectedModule
+                }
 
-                    $postRunMenu = @(
-                        "Run again: $runLabel"
-                        "Change test scope"
-                        "Change module"
-                        "Change access flow"
-                        "Change project"
-                        "[ Exit ]"
-                    )
+                $scopeTitle = if ($hasFeatureLevel) {
+                    "$selectedProject / $selectedAccessFlow / $selectedModule / $selectedFeature"
+                } else {
+                    "$selectedProject / $selectedAccessFlow / $selectedModule"
+                }
 
-                    $postChoice = Show-Menu `
-                        -Title "Test Complete" `
-                        -Items $postRunMenu
+                :scopeLoop while ($true) {
+                    # ---- Level 5: Select Scope ----
+                    $allSpecFiles = Get-SpecFiles `
+                        -Path $featurePath `
+                        -Recursive
 
-                    switch ($postChoice) {
-                        0 {
-                            continue runLoop
+                    if ($allSpecFiles.Count -eq 0) {
+                        Clear-Host
+
+                        Write-Host "[WARNING] No .spec.ts files were found" `
+                            -ForegroundColor Yellow
+
+                        Write-Host ""
+                        Write-Host "Path: $featurePath"
+
+                        Wait-ForAnyKey `
+                            -Message "Press any key to go back..."
+
+                        if ($hasFeatureLevel) {
+                            continue featureLoop
                         }
-
-                        1 {
-                            continue scopeLoop
-                        }
-
-                        2 {
+                        else {
                             continue moduleLoop
                         }
+                    }
 
-                        3 {
-                            if ($accessFlows.Count -eq 1) {
-                                continue mainLoop
+                    $scopeMenu = @(
+                        "Run ALL tests in $scopeLabelBase"
+                        "Select SPECIFIC test file"
+                        "[ Back ]"
+                    )
+
+                    $scopeChoice = Show-Menu `
+                        -Title $scopeTitle `
+                        -Items $scopeMenu
+
+                    if (
+                        $scopeChoice -eq -1 -or
+                        $scopeChoice -eq 2
+                    ) {
+                        if ($hasFeatureLevel) {
+                            continue featureLoop
+                        }
+                        else {
+                            continue moduleLoop
+                        }
+                    }
+
+                    if ($scopeChoice -eq 0) {
+                        $runPath = $featurePath
+                        $runLabel = "ALL tests in $scopeLabelBase"
+                    }
+                    else {
+                        # ---- Level 6: Select Spec File ----
+                        :fileLoop while ($true) {
+                            $specFileLabels = @(
+                                foreach ($specFile in $allSpecFiles) {
+                                    Get-RelativePath `
+                                        -BasePath $featurePath `
+                                        -TargetPath $specFile.FullName
+                                }
+                            )
+
+                            $fileMenu = $specFileLabels + "[ Back ]"
+
+                            $fileChoice = Show-Menu `
+                                -Title "Select Test File" `
+                                -Items $fileMenu
+
+                            if (
+                                $fileChoice -eq -1 -or
+                                $fileChoice -eq ($fileMenu.Count - 1)
+                            ) {
+                                continue scopeLoop
                             }
 
-                            continue accessFlowLoop
+                            $selectedSpecFile =
+                                $allSpecFiles[$fileChoice]
+
+                            $runPath =
+                                $selectedSpecFile.FullName
+
+                            $runLabel =
+                                $specFileLabels[$fileChoice]
+
+                            break fileLoop
                         }
+                    }
 
-                        4 {
-                            continue mainLoop
+                    # ---- Run Test and Post-run Menu ----
+                    :runLoop while ($true) {
+                        $runResult = Invoke-PlaywrightTest `
+                            -Path $runPath `
+                            -ProjectName $selectedProject `
+                            -AccessFlowName $selectedAccessFlow `
+                            -AccessFlowPath $accessFlowPath `
+                            -RunLabel $runLabel
+
+                        if ($hasFeatureLevel) {
+                            $postRunMenu = @(
+                                "Run again: $runLabel"
+                                "Change test scope"
+                                "Change feature"
+                                "Change module"
+                                "Change access flow"
+                                "Change project"
+                                "[ Exit ]"
+                            )
+
+                            $postChoice = Show-Menu `
+                                -Title "Test Complete" `
+                                -Items $postRunMenu
+
+                            switch ($postChoice) {
+                                0 {
+                                    continue runLoop
+                                }
+
+                                1 {
+                                    continue scopeLoop
+                                }
+
+                                2 {
+                                    continue featureLoop
+                                }
+
+                                3 {
+                                    continue moduleLoop
+                                }
+
+                                4 {
+                                    if ($accessFlows.Count -eq 1) {
+                                        continue mainLoop
+                                    }
+
+                                    continue accessFlowLoop
+                                }
+
+                                5 {
+                                    continue mainLoop
+                                }
+
+                                default {
+                                    Clear-TestAuthentication
+                                    Clear-Host
+
+                                    Write-Host "Goodbye!" `
+                                        -ForegroundColor Green
+
+                                    exit 0
+                                }
+                            }
                         }
+                        else {
+                            $postRunMenu = @(
+                                "Run again: $runLabel"
+                                "Change test scope"
+                                "Change module"
+                                "Change access flow"
+                                "Change project"
+                                "[ Exit ]"
+                            )
 
-                        default {
-                            Clear-TestAuthentication
-                            Clear-Host
+                            $postChoice = Show-Menu `
+                                -Title "Test Complete" `
+                                -Items $postRunMenu
 
-                            Write-Host "Goodbye!" `
-                                -ForegroundColor Green
+                            switch ($postChoice) {
+                                0 {
+                                    continue runLoop
+                                }
 
-                            exit 0
+                                1 {
+                                    continue scopeLoop
+                                }
+
+                                2 {
+                                    continue moduleLoop
+                                }
+
+                                3 {
+                                    if ($accessFlows.Count -eq 1) {
+                                        continue mainLoop
+                                    }
+
+                                    continue accessFlowLoop
+                                }
+
+                                4 {
+                                    continue mainLoop
+                                }
+
+                                default {
+                                    Clear-TestAuthentication
+                                    Clear-Host
+
+                                    Write-Host "Goodbye!" `
+                                        -ForegroundColor Green
+
+                                    exit 0
+                                }
+                            }
                         }
                     }
                 }

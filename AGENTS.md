@@ -27,13 +27,23 @@ ttest-playwright/
     └── <Project>/                       # e.g. WEF, Nebula-Spa
         └── <AccessFlow>/                # e.g. Microsoft-Login, Admin-Login
             ├── project.config.json      # { "authType": "microsoft|form|none" }
-            └── <Module>/                # e.g. dashboard, car-model
-                └── <Feature>/           # e.g. search, add, edit
-                    ├── <feature>.spec.ts
-                    ├── <feature>.helper.ts
-                    ├── <feature>.types.ts
-                    ├── <feature>.data.ts
-                    └── _locators/       # Raw codegen dumps (gitignored)
+            │
+            ├── <Module>/                # Nested — multiple features or complex
+            │   ├── _locators/           # Module-level (shared across features)
+            │   │   ├── search.ts        # Named by feature
+            │   │   ├── export.ts
+            │   │   └── pagination.ts
+            │   │
+            │   └── <Feature>/           # Feature folder (no _locators inside)
+            │       ├── <feature>.spec.ts
+            │       ├── <feature>.helper.ts
+            │       ├── <feature>.types.ts
+            │       └── <feature>.data.ts
+            │
+            └── <SimpleModule>/          # Flat — single feature, simple CRUD
+                ├── <name>.spec.ts       # e.g. car-model-add.spec.ts
+                └── _locators/           # optional (module-level)
+                    └── <name>.ts
 ```
 
 ### Auth types
@@ -44,12 +54,12 @@ ttest-playwright/
 | `microsoft` | Azure AD SSO — persistent Chromium profile |
 | `form` | Email/password login — session storage (cookies or sessionStorage) |
 
-### Simple vs complex module
+### Structure decision
 
-| Structure | Use when |
-|---|---|
-| **1 file** (spec only) | Simple CRUD, single flow, <10 test cases |
-| **4 files** (spec + helper + types + data) | 3+ control types, 10+ test cases, data-driven |
+| Structure | Use when | Example |
+|---|---|---|
+| **Flat** (spec directly in module) | Simple CRUD, single feature, <10 test cases | `car-model/car-model-add.spec.ts` |
+| **Nested** (feature folder + 4 files) | Multiple features per module, OR 3+ control types, OR 10+ data-driven cases | `dashboard/search/search.spec.ts` + `.helper.ts` + `.types.ts` + `.data.ts` |
 
 ---
 
@@ -133,13 +143,14 @@ When adding a scenario, identify which of 3 cases applies:
 **Signal:** Feature doesn't exist — concept differs from existing features (e.g., Search → Export)
 
 **Action:**
-1. Create folder: `<module>/<feature>/`
-2. Reference nearest similar feature (see Discovery)
-3. Create 4 files: `spec.ts` + `helper.ts` + `types.ts` + `data.ts`
-4. Get locators via codegen → paste in `_locators/raw-codegen.ts`
-5. Refactor locators into pattern
+1. Codegen target page → save raw output to `<module>/_locators/<feature>.ts`
+2. Get test scenarios (from QA's Excel, business req, or dev observation)
+3. Create feature folder: `<module>/<feature>/`
+4. Reference nearest similar feature for pattern
+5. Create 4 files: `spec.ts` + `helper.ts` + `types.ts` + `data.ts`
+6. AI composes test steps from scenarios + locators
 
-**Files touched:** 4 new files in new folder
+**Files touched:** 4 new files in new folder + 1 locator file in module
 
 ### Decision tree
 
@@ -153,7 +164,7 @@ New scenario request
     │     │         ├─► Yes ─► Case 1 (add data row)
     │     │         └─► No  ─► Case 2 (extend types + helper)
     │     │
-    │     └─► No ──► Case 3 (new folder + 4 files)
+    │     └─► No ──► Case 3 (new folder + 4 files + module _locators)
 ```
 
 ---
@@ -162,51 +173,62 @@ New scenario request
 
 **Rule:** AI does not generate raw locators. Locators come from manual Playwright codegen.
 
+**Location:** `<module>/_locators/<feature>.ts` — module-level, named by feature
+
+**Rationale:** Multiple features in same module often share fields (e.g., dashboard search + export both use dealer filter). Module-level enables reuse; feature-named files preserve ownership.
+
 ### Workflow
 
-1. Dev runs codegen → copy raw output
-2. Paste into `<module>/<feature>/_locators/raw-codegen.ts` (create folder if missing)
-3. Ask AI: *"refactor `_locators/raw-codegen.ts` into `helper.ts` pattern"*
+1. Dev runs codegen on target page → copy raw output
+2. Paste into `<module>/_locators/<feature>.ts` (create `_locators/` if missing)
+3. Ask AI: *"generate feature based on `_locators/<feature>.ts` + scenarios below"* + paste scenarios
 4. AI reads:
-   - `_locators/raw-codegen.ts` (source)
-   - `<feature>.helper.ts` (target pattern)
-   - `<feature>.types.ts` (schema)
-5. AI generates refactored code — human reviews + applies
-6. Raw file stays as reference for future regen
+   - `<module>/_locators/<feature>.ts` (locators — what's on the page)
+   - Provided scenarios (what to test)
+   - Reference feature's `helper.ts` + `types.ts` (target pattern)
+5. AI generates skeleton — human reviews + applies
+6. Locator file stays as reference for future changes
 
-### `_locators/` convention
+### Naming convention
 
-- **Per feature** — one folder per feature
-- **Any file name** — `raw-codegen.ts`, `dealer-fields.ts`, etc.
+- **Per feature** — `search.ts`, `export.ts`, `pagination.ts`
+- **Shared fields** (optional) — `common-fields.ts` when 3+ features share fields
 - **Never commit** — gitignored (`**/_locators/`)
 
 ---
 
-## Section 6: Adding a New Module Workflow
+## Section 6: Adding a New Feature Workflow
 
-1. **Explore via codegen**
+1. **Codegen exploration + save**
    - Open target page
-   - Interact with every field, button, dropdown
-   - Note field types and ordering (`first()`, `nth(1)`, etc.)
-   - Save raw output to `<module>/<feature>/_locators/raw-codegen.ts`
+   - Interact with every field, button, dropdown for the new feature
+   - Save raw output to `<module>/_locators/<feature>.ts`
 
-2. **Choose structure** (1-file vs 4-file — Section 1)
+2. **Gather test scenarios**
+   - From QA's Excel — primary source
+   - From business requirements — supplementary
+   - From dev observation — for edge cases
 
-3. **Design types union**
-   - One case per field type
-   - Named fields (unique) → `named<Type>` case
-   - Ordered fields (repeated type) → `<Type>` with `controlIndex`
-   - Reference: existing feature's `types.ts`
+3. **Choose structure** (flat vs nested — Section 1)
 
-4. **Implement helper**
-   - Switch on `controlType`
-   - Import verify helpers from `_shared/verify-helpers.ts`
+4. **Prompt AI with:**
+   - Locators file path
+   - Scenarios list
+   - Reference pattern (existing similar feature)
 
-5. **Skeleton spec + verify with 1-2 test cases**
+5. **AI generates:**
+   - Feature folder + 4 files
+   - Types union based on locators
+   - Helper switch mapping scenarios to actions
+   - Data cases from scenarios
+   - Test spec that composes flow
 
-6. **Data expansion** — Fill `data.ts` from QA's scenarios
+6. **Human reviews:**
+   - Verify locator strategy (index, name, RegExp)
+   - Fill any TODO markers (specific values from QA)
+   - Adjust assertions if needed
 
-7. **Regenerate JSON cache** — `analyze-project.bat` (if using Option A discovery)
+7. **Run + verify + regenerate JSON cache** — `analyze-project.bat`
 
 ---
 
@@ -226,6 +248,11 @@ New scenario request
 
 - Helper function used across 3+ specs → extract
 - Login flow used across 3+ specs → extract to `<project>/_shared/`
+
+### When to move locator to `common-fields.ts`
+
+- Field used in 3+ features → extract to shared file
+- Field used in 1-2 features → keep in feature-specific file
 
 ---
 

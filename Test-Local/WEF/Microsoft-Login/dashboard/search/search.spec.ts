@@ -6,13 +6,13 @@ import {
 
 import {
   dashboardSearchTestCases,
-} from './dashboard-search.data';
+} from './search.data';
 
 import {
   applySearchControl,
-} from './dashboard-search.helper';
+} from './search.helper';
 
-import { verifySearchResult } from '../../_shared/verify-helpers';
+import { verifySearchResult } from '../../../_shared/verify-helpers';
 
 const APPLICATION_URL =
   'https://apps-uat.tokiomarinesafety.co.th/wfe/';
