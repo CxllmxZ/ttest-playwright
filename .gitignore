@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Playwright output
+playwright-report/
+test-results/
+blob-report/
+report/
+
+# IDE
+.vscode/*
+.idea/
+!.vscode/tasks.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local Playwright browsers
+browsers/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Microsoft authentication
+Authen/Microsoft/profile/*
+Authen/Microsoft/state.json
+!Authen/Microsoft/profile/.gitkeep
+
+# Form login authentication state
+Test-Local/**/_login/session-storage.json
+Test-Local/**/_login/state.json
+
+# AI Agent cache
+.agent-cache/
+
+# Private client projects — never publish
+Test-Local/WEF/
+
+# NOTE: _locators/ committed — helper.ts imports it at runtime
+# NOTE: _scenarios/ committed — QA-owned CSV test scenarios

@@ -1,0 +1,24 @@
+{
+  "name": "ttest-playwright",
+  "version": "2.0.0",
+  "description": "Universal Playwright test runner with GitHub Actions CI + local interactive menu",
+  "scripts": {
+    "test": "playwright test",
+    "codegen": "playwright codegen"
+  },
+  "type": "module",
+  "keywords": [
+    "playwright",
+    "testing",
+    "e2e",
+    "automation"
+  ],
+  "author": "CxllmxZ",
+  "license": "MIT",
+  "packageManager": "pnpm@10.23.0",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.5.0",
+    "typescript": "^7.0.2"
+  }
+}

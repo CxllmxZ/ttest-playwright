@@ -1,0 +1,83 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup 1 — Create-Project",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/scripts/create-project.mjs",
+        "${input:project}",
+        "${input:accessFlow}",
+        "${input:module}",
+        "${input:authType}"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup 5 — สร้าง feature",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/scripts/setup-5.mjs",
+        "${input:project}",
+        "${input:accessFlow}",
+        "${input:module}",
+        "${input:feature}"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup 7 — อัปเดต TC (data.ts)",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/scripts/setup-5.mjs",
+        "${input:project}",
+        "${input:accessFlow}",
+        "${input:module}",
+        "${input:feature}",
+        "--data-only"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "project",
+      "type": "promptString",
+      "description": "Project (ชื่อโฟลเดอร์ใน Test-Local เช่น Nebula-Spa)"
+    },
+    {
+      "id": "accessFlow",
+      "type": "promptString",
+      "description": "AccessFlow (เช่น No-Auth, Microsoft-Login)"
+    },
+    {
+      "id": "module",
+      "type": "promptString",
+      "description": "Module (เช่น Bookings, Dashboard)"
+    },
+    {
+      "id": "feature",
+      "type": "promptString",
+      "description": "Feature (ชื่อไฟล์ใน _flows / _locators / _scenarios เช่น bookings)"
+    },
+    {
+      "id": "authType",
+      "type": "pickString",
+      "description": "AuthType — วิธี login ของ access flow นี้",
+      "options": [
+        { "label": "none — ไม่ต้อง login", "value": "none" },
+        { "label": "microsoft — login ด้วย Microsoft", "value": "microsoft" },
+        { "label": "form — login ด้วย email/password", "value": "form" }
+      ]
+    }
+  ]
+}
