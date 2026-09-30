@@ -1,5 +1,5 @@
 @echo off
-setlocal 
+setlocal
 chcp 437 >nul
 
 set "CI=true"
@@ -15,200 +15,188 @@ echo.
 echo Repo location: %CD%
 echo.
 
-REM set PLAYWRIGHT_BROWSERS_PATH=%CD%\browsers
+REM Behind a corporate proxy that inspects HTTPS, preferably set
+REM   NODE_EXTRA_CA_CERTS=C:\path\to\company-ca.pem
+REM As a last resort, TTEST_INSECURE_TLS=1 disables certificate checks
+REM for the Chromium download only.
 
-REM ---- Check Node.js ----
+REM ==========================================
+REM Node.js
+REM ==========================================
 where node >nul 2>nul
-if not errorlevel 1 (
-    echo [SUCCESS] Node.js is installed
-    call node -v
-) else (
-    echo [ERROR] Node.js not installed
-    echo Please install from https://nodejs.org
-    pause
-    exit /b 1
-)
-echo.
-
-REM ---- Check pnpm ----
-where pnpm >nul 2>nul
-if not errorlevel 1 (
-    echo [SUCCESS] pnpm is installed
-    call pnpm -v
-) else (
-    echo [INFO] pnpm not found, installing globally...
-    call npm install -g pnpm
-    if errorlevel 1 (
-        echo [ERROR] Failed to install pnpm
-        pause
-        exit /b 1
-    )
-    echo [SUCCESS] pnpm installed
-    call pnpm -v
-)
-echo.
-echo DEBUG-1: Reached Playwright section
-echo.
-
-echo Checking Playwright...
-
-call pnpm.cmd exec playwright --version >nul 2>&1
-if not errorlevel 1 (
-    echo [SUCCESS] Playwright is already installed
-    call pnpm.cmd exec playwright --version
-) else (
-    REM ---- Install Playwright ----
-    echo Installing @playwright/test...
-    call pnpm add -D @playwright/test --reporter=append-only
-    pause
-    exit /b 1
-)
-
-REM Verify Playwright installed
-where pnpm >nul 2>nul
-call pnpm exec playwright --version
 if errorlevel 1 (
-    echo [ERROR] Playwright not working
+    echo [ERROR] Node.js not installed
+    echo Please install Node.js 18+ from https://nodejs.org
     pause
     exit /b 1
 )
-echo [SUCCESS] Playwright installed
+echo [SUCCESS] Node.js is installed
+call node -v
 echo.
 
 REM ==========================================
-REM Check Chromium in shared browser cache
+REM pnpm
+REM ==========================================
+where pnpm >nul 2>nul
+if not errorlevel 1 goto :pnpm_ok
+
+echo [INFO] pnpm not found, installing globally...
+call npm install -g pnpm
+if errorlevel 1 (
+    echo [ERROR] Failed to install pnpm
+    pause
+    exit /b 1
+)
+
+:pnpm_ok
+echo [SUCCESS] pnpm is installed
+call pnpm.cmd -v
+echo.
+
+REM ==========================================
+REM Project dependencies from package.json / pnpm-lock.yaml
+REM ==========================================
+echo Installing project dependencies...
+call pnpm.cmd install --reporter=append-only
+if errorlevel 1 (
+    echo [ERROR] pnpm install failed
+    pause
+    exit /b 1
+)
+echo [SUCCESS] Project dependencies installed
+echo.
+
+REM ==========================================
+REM Playwright
+REM ==========================================
+echo Checking Playwright...
+call pnpm.cmd exec playwright --version >nul 2>&1
+if not errorlevel 1 goto :playwright_ok
+
+echo [INFO] @playwright/test not in package.json, adding it...
+call pnpm.cmd add -D @playwright/test --reporter=append-only
+if errorlevel 1 (
+    echo [ERROR] Failed to install @playwright/test
+    pause
+    exit /b 1
+)
+call pnpm.cmd exec playwright --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Playwright is still not working after installation
+    pause
+    exit /b 1
+)
+
+:playwright_ok
+echo [SUCCESS] Playwright is installed
+call pnpm.cmd exec playwright --version
+echo.
+
+REM ==========================================
+REM Chromium
 REM ==========================================
 echo Checking Chromium...
-REM Ask the currently installed Playwright package for the exact
-REM Chromium executable path it expects, then check whether it exists.
 node.exe -e "const fs=require('fs'); const {chromium}=require('@playwright/test'); const p=chromium.executablePath(); console.log('Expected Chromium: ' + p); process.exit(fs.existsSync(p) ? 0 : 1);"
-
 if not errorlevel 1 (
     echo [SUCCESS] Chromium is already installed
-) else (
-    echo [INFO] Chromium required by this Playwright version was not found
-    echo Installing Chromium browser...
-    echo This may take several minutes.
-    echo.
-
-    REM Temporary workaround for corporate TLS inspection.
-    REM Replace this with NODE_EXTRA_CA_CERTS when company CA is available.
-    set "NODE_TLS_REJECT_UNAUTHORIZED=0"
-    call pnpm.cmd exec playwright install chromium
-    set "CHROMIUM_INSTALL_EXIT_CODE=%ERRORLEVEL%"
-
-    REM Restore TLS verification immediately
-    set "NODE_TLS_REJECT_UNAUTHORIZED="
-
-    if not "%CHROMIUM_INSTALL_EXIT_CODE%"=="0" (
-        echo [ERROR] Failed to install Chromium
-        pause
-        exit /b %CHROMIUM_INSTALL_EXIT_CODE%
-    )
-
-    REM Verify Chromium executable again after installation
-    node.exe -e "const fs=require('fs'); const {chromium}=require('@playwright/test'); const p=chromium.executablePath(); console.log('Expected Chromium: ' + p); process.exit(fs.existsSync(p) ? 0 : 1);"
-
-    if errorlevel 1 (
-        echo [ERROR] Chromium installation finished
-        echo [ERROR] but the required executable was not found
-        pause
-        exit /b 1
-    )
-
-    echo [SUCCESS] Chromium installed successfully
+    goto :chromium_done
 )
+
+echo [INFO] Chromium required by this Playwright version was not found
+echo Installing Chromium browser. This may take several minutes.
+echo.
+
+if "%TTEST_INSECURE_TLS%"=="1" (
+    echo [WARNING] TTEST_INSECURE_TLS=1 - certificate checks are DISABLED for this download.
+    echo           Use only behind a corporate proxy. Prefer NODE_EXTRA_CA_CERTS.
+    set "NODE_TLS_REJECT_UNAUTHORIZED=0"
+)
+
+call pnpm.cmd exec playwright install chromium
+set "CHROMIUM_EXIT=%ERRORLEVEL%"
+
+REM Restore TLS verification immediately
+set "NODE_TLS_REJECT_UNAUTHORIZED="
+
+if "%CHROMIUM_EXIT%"=="0" goto :chromium_verify
+
+echo [ERROR] Failed to install Chromium
+echo.
+echo If you are behind a corporate proxy that inspects HTTPS:
+echo   1. Preferred: set NODE_EXTRA_CA_CERTS to your company CA certificate file
+echo   2. Last resort: set TTEST_INSECURE_TLS=1 and run setup.bat again
+pause
+exit /b %CHROMIUM_EXIT%
+
+:chromium_verify
+node.exe -e "const fs=require('fs'); const {chromium}=require('@playwright/test'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1);"
+if errorlevel 1 (
+    echo [ERROR] Chromium installation finished but the executable was not found
+    pause
+    exit /b 1
+)
+echo [SUCCESS] Chromium installed successfully
+
+:chromium_done
 echo.
 
 REM ==========================================
-REM Check Node.js Type Definitions
+REM @types/node
 REM ==========================================
 echo Checking @types/node...
-
 node.exe -e "require.resolve('@types/node/package.json')" >nul 2>&1
-
 if not errorlevel 1 (
-    echo [SUCCESS] @types/node is already installed
-) else (
-    echo [INFO] @types/node was not found
-    echo Installing @types/node...
-
-    call pnpm.cmd add -D @types/node --reporter=append-only
-
-    if errorlevel 1 (
-        echo [ERROR] Failed to install @types/node
-        pause
-        exit /b 1
-    )
-
-    REM Verify again after installation
-    node.exe -e "require.resolve('@types/node/package.json')" >nul 2>&1
-
-    if errorlevel 1 (
-        echo [ERROR] @types/node is still unavailable after installation
-        pause
-        exit /b 1
-    )
-
-    echo [SUCCESS] @types/node installed successfully
+    echo [SUCCESS] @types/node is installed
+    goto :types_done
 )
+echo [INFO] Installing @types/node...
+call pnpm.cmd add -D @types/node --reporter=append-only
+if errorlevel 1 (
+    echo [ERROR] Failed to install @types/node
+    pause
+    exit /b 1
+)
+echo [SUCCESS] @types/node installed
+
+:types_done
 echo.
 
 REM ==========================================
-REM Check TypeScript
+REM TypeScript
 REM ==========================================
 echo Checking TypeScript...
-
 call pnpm.cmd exec tsc --version >nul 2>&1
-
 if not errorlevel 1 (
-    echo [SUCCESS] TypeScript is already installed
-    call pnpm.cmd exec tsc --version
-) else (
-    echo [INFO] TypeScript was not found
-    echo Installing TypeScript...
-
-    call pnpm.cmd add -D typescript --reporter=append-only
-
-    if errorlevel 1 (
-        echo [ERROR] Failed to install TypeScript
-        pause
-        exit /b 1
-    )
-
-    REM Verify again after installation
-    call pnpm.cmd exec tsc --version >nul 2>&1
-
-    if errorlevel 1 (
-        echo [ERROR] TypeScript is still unavailable after installation
-        pause
-        exit /b 1
-    )
-
-    echo [SUCCESS] TypeScript installed successfully
-    call pnpm.cmd exec tsc --version
+    echo [SUCCESS] TypeScript is installed
+    goto :ts_done
 )
+echo [INFO] Installing TypeScript...
+call pnpm.cmd add -D typescript --reporter=append-only
+if errorlevel 1 (
+    echo [ERROR] Failed to install TypeScript
+    pause
+    exit /b 1
+)
+echo [SUCCESS] TypeScript installed
+
+:ts_done
+call pnpm.cmd exec tsc --version
 echo.
 
 REM ==========================================
-REM Display environment information
+REM Summary
 REM ==========================================
 echo Playwright information:
 call pnpm.cmd exec playwright --version
 echo.
-echo Installed Playwright browsers:
-call pnpm.cmd exec playwright install --list
-if errorlevel 1 (
-    echo [WARNING] Could not display installed browser list
-)
 
-echo.
 echo ==========================================
 echo   Setup complete!
 echo ==========================================
 echo.
 echo Next steps:
-echo   Double-click run-local.bat to run tests
-echo   Double-click run-codegen.bat to record tests
+echo   Double-click Test-Local\run-codegen.bat to record a flow
+echo   Double-click Test-Local\run-local.bat to run tests
+echo   Guide: doc\GUIDE.md
 echo.
 pause

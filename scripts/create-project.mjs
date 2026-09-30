@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Create-Project — สร้าง project + access flow + module + config ในครั้งเดียว (รวม Setup 1 + 2 เดิม)
+// Create-Project (Setup 1) — create project + access flow + module + config in one step
 //
 // Usage:
 //   node scripts/create-project.mjs <Project> <AccessFlow> <Module> <AuthType>
@@ -8,7 +8,8 @@
 //   node scripts/create-project.mjs Nebula-Spa No-Auth Bookings none
 //
 // AuthType: none | microsoft | form
-// Exit code: 0 = สำเร็จ, 1 = มีปัญหา (ไม่มีอะไรถูกสร้าง)
+// Exit code: 0 = success, 1 = problem (nothing created)
+// Language: auto from system locale (Thai → th, else en). Override: TTEST_LANG=th | en
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,6 +20,15 @@ const TEST_LOCAL = path.join(ROOT, 'Test-Local');
 const VALID_AUTH = ['none', 'microsoft', 'form'];
 const CONVENTION = ['_flows', '_locators', '_scenarios'];
 
+function detectLang() {
+  const env = (process.env.TTEST_LANG || '').toLowerCase();
+  if (env === 'th' || env === 'en') return env;
+  const loc = Intl.DateTimeFormat().resolvedOptions().locale || '';
+  return loc.toLowerCase().startsWith('th') ? 'th' : 'en';
+}
+const LANG = detectLang();
+const t = (th, en) => (LANG === 'th' ? th : en);
+
 class SetupError extends Error {}
 const fail = (msg) => {
   throw new SetupError(msg);
@@ -26,23 +36,24 @@ const fail = (msg) => {
 const rel = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 
 function checkName(label, name) {
-  if (!name || name.trim() !== name) fail(`${label} ว่างหรือมีช่องว่างหน้า/หลัง: "${name}"`);
+  if (!name || name.trim() !== name) fail(t(`${label} ว่างหรือมีช่องว่างหน้า/หลัง: "${name}"`, `${label} is empty or has leading/trailing spaces: "${name}"`));
   if (/[<>:"/\\|?*\s]/.test(name)) {
-    fail(`${label} "${name}" มีตัวอักษรที่ใช้เป็นชื่อโฟลเดอร์ไม่ได้ (ช่องว่าง < > : " / \\ | ? *) → ใช้ - แทน`);
+    fail(t(`${label} "${name}" มีตัวอักษรที่ใช้เป็นชื่อโฟลเดอร์ไม่ได้ (ช่องว่าง < > : " / \\ | ? *) → ใช้ - แทน`,
+      `${label} "${name}" has characters not allowed in folder names (space < > : " / \\ | ? *) → use - instead`));
   }
   if (name.startsWith('_') || name.startsWith('.')) {
-    fail(`${label} "${name}" ห้ามขึ้นต้นด้วย _ หรือ . (สงวนไว้สำหรับโฟลเดอร์ของระบบ)`);
+    fail(t(`${label} "${name}" ห้ามขึ้นต้นด้วย _ หรือ . (สงวนไว้สำหรับโฟลเดอร์ของระบบ)`, `${label} "${name}" must not start with _ or . (reserved for framework folders)`));
   }
 }
 
-// โฟลเดอร์ที่ชื่อเหมือนกันแต่ตัวพิมพ์ต่างกัน (Windows มองว่าเป็นอันเดียวกัน แต่ git/Linux ไม่ใช่)
+// Same name, different case (Windows treats them as equal, git/Linux do not)
 function checkCase(parentDir, name, label) {
   if (!fs.existsSync(parentDir)) return;
   const entries = fs.readdirSync(parentDir, { withFileTypes: true }).filter((d) => d.isDirectory());
   const exact = entries.some((d) => d.name === name);
   const other = entries.find((d) => d.name !== name && d.name.toLowerCase() === name.toLowerCase());
   if (!exact && other) {
-    fail(`มี ${label} ชื่อ "${other.name}" อยู่แล้ว (ต่างกันแค่ตัวพิมพ์เล็ก-ใหญ่) → ใช้ "${other.name}"`);
+    fail(t(`มี ${label} ชื่อ "${other.name}" อยู่แล้ว (ต่างกันแค่ตัวพิมพ์เล็ก-ใหญ่) → ใช้ "${other.name}"`, `${label} "${other.name}" already exists (differs only in letter case) → use "${other.name}"`));
   }
 }
 
@@ -69,21 +80,21 @@ function main() {
   const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   if (args.length !== 4) {
     fail(
-      'ต้องระบุ 4 ค่า: <Project> <AccessFlow> <Module> <AuthType>\n' +
-        '  ตัวอย่าง: node scripts/create-project.mjs Nebula-Spa No-Auth Bookings none'
+      t('ต้องระบุ 4 ค่า: <Project> <AccessFlow> <Module> <AuthType>', '4 values required: <Project> <AccessFlow> <Module> <AuthType>') +
+        t('\n  ตัวอย่าง: ', '\n  example: ') + 'node scripts/create-project.mjs Nebula-Spa No-Auth Bookings none'
     );
   }
   const [project, access, moduleName, authType] = args;
 
   if (!VALID_AUTH.includes(authType)) {
-    fail(`AuthType "${authType}" ไม่ถูกต้อง ต้องเป็น ${VALID_AUTH.join(' / ')} (ตัวพิมพ์เล็ก)`);
+    fail(t(`AuthType "${authType}" ไม่ถูกต้อง ต้องเป็น ${VALID_AUTH.join(' / ')} (ตัวพิมพ์เล็ก)`, `AuthType "${authType}" is invalid — must be ${VALID_AUTH.join(' / ')} (lowercase)`));
   }
   checkName('Project', project);
   checkName('AccessFlow', access);
   checkName('Module', moduleName);
 
   if (!fs.existsSync(TEST_LOCAL)) {
-    fail(`ไม่พบโฟลเดอร์ ${rel(TEST_LOCAL)} → รันสคริปต์จากใน repo ttest-playwright หรือไม่`);
+    fail(t(`ไม่พบโฟลเดอร์ ${rel(TEST_LOCAL)} → รันสคริปต์จากใน repo ttest-playwright หรือไม่`, `${rel(TEST_LOCAL)} not found → is this script inside the ttest-playwright repo?`));
   }
 
   const projectDir = path.join(TEST_LOCAL, project);
@@ -96,19 +107,19 @@ function main() {
   checkCase(accessDir, moduleName, 'module');
 
   if (fs.existsSync(moduleDir)) {
-    fail(`${rel(moduleDir)} มีอยู่แล้ว → ลบเองก่อน หรือใช้ชื่อ module อื่น`);
+    fail(t(`${rel(moduleDir)} มีอยู่แล้ว → ลบเองก่อน หรือใช้ชื่อ module อื่น`, `${rel(moduleDir)} already exists → delete it first or choose another module name`));
   }
 
-  // config: ตัดสินใจก่อนสร้างอะไรทั้งนั้น (ถ้าต้องหยุด จะได้ไม่มีโฟลเดอร์ค้าง)
+  // Decide on config before creating anything (so a stop leaves no half-created folders)
   let configAction = 'create';
   if (fs.existsSync(configFile)) {
     const { value, broken } = readAuth(configFile);
     if (!broken && value === authType) configAction = 'keep';
     else if (!broken && VALID_AUTH.includes(value)) {
-      fail(
-        `access flow "${access}" ใช้ authType "${value}" อยู่แล้ว (1 access flow = 1 แบบ)\n` +
-          `  → ถ้าต้องการ "${authType}" ให้ตั้งชื่อ AccessFlow ใหม่`
-      );
+      fail(t(
+        `access flow "${access}" ใช้ authType "${value}" อยู่แล้ว (1 access flow = 1 แบบ)\n  → ถ้าต้องการ "${authType}" ให้ตั้งชื่อ AccessFlow ใหม่`,
+        `access flow "${access}" already uses authType "${value}" (one auth type per access flow)\n  → for "${authType}" use a new AccessFlow name`
+      ));
     } else configAction = 'fix';
   }
 
@@ -126,28 +137,34 @@ function main() {
   }
 
   const configNote = {
-    create: `สร้าง project.config.json (authType: ${authType})`,
-    keep: `ใช้ project.config.json เดิม (authType: ${authType})`,
-    fix: `แก้ project.config.json เดิมที่ค่าไม่ถูกต้อง → authType: ${authType}`,
+    create: t(`สร้าง project.config.json (authType: ${authType})`, `created project.config.json (authType: ${authType})`),
+    keep: t(`ใช้ project.config.json เดิม (authType: ${authType})`, `kept existing project.config.json (authType: ${authType})`),
+    fix: t(`แก้ project.config.json เดิมที่ค่าไม่ถูกต้อง → authType: ${authType}`, `fixed invalid project.config.json → authType: ${authType}`),
   }[configAction];
+  const state = (isNew) => (isNew ? t(' (ใหม่)', ' (new)') : t(' (มีอยู่แล้ว)', ' (existing)'));
 
-  console.log(`✅ Create-Project สำเร็จ: ${rel(moduleDir)}/`);
-  console.log(`   project: ${project}${newProject ? ' (ใหม่)' : ' (มีอยู่แล้ว)'}`);
+  console.log(t(`✅ Create-Project สำเร็จ: ${rel(moduleDir)}/`, `✅ Create-Project done: ${rel(moduleDir)}/`));
+  console.log(`   project: ${project}${state(newProject)}`);
   if (newProject && existingProjects.length) {
-    console.log(`   ⚠️  โปรเจคที่มีอยู่ก่อนหน้า: ${existingProjects.join(', ')} — ถ้าตั้งใจใช้อันเดิม แปลว่าพิมพ์ชื่อผิด`);
+    console.log(t(
+      `   ⚠️  โปรเจคที่มีอยู่ก่อนหน้า: ${existingProjects.join(', ')} — ถ้าตั้งใจใช้อันเดิม แปลว่าพิมพ์ชื่อผิด`,
+      `   ⚠️  existing projects: ${existingProjects.join(', ')} — if you meant one of these, the name is mistyped`
+    ));
   }
-  console.log(`   access flow: ${access}${newAccess ? ' (ใหม่)' : ' (มีอยู่แล้ว)'}`);
-  console.log(`   module: ${moduleName} (ใหม่) — _flows/ _locators/ _scenarios/`);
+  console.log(`   access flow: ${access}${state(newAccess)}`);
+  console.log(`   module: ${moduleName}${state(true)} — _flows/ _locators/ _scenarios/`);
   console.log(`   ${configNote}`);
-  console.log('▶  ถัดไป: dev วาง codegen ใน _flows/<feature>.ts (มี marker SETUP / PER TEST / DATA)');
-  console.log('          และ _locators/<feature>.ts แล้วใช้ Setup 3');
+  console.log(t(
+    '▶  ถัดไป: อัด codegen แล้วแบ่งลง _flows/<feature>.ts (marker SETUP / PER TEST / DATA)\n          และ _locators/<feature>.ts แล้วใช้ Setup 3',
+    '▶  next: record with codegen, split it into _flows/<feature>.ts (SETUP / PER TEST / DATA markers)\n          and _locators/<feature>.ts, then run Setup 3'
+  ));
 }
 
 try {
   main();
 } catch (e) {
   if (e instanceof SetupError) {
-    console.error(`❌ Create-Project หยุดทำงาน — ไม่มีอะไรถูกสร้าง\n${e.message}`);
+    console.error(t('❌ Create-Project หยุดทำงาน — ไม่มีอะไรถูกสร้าง', '❌ Create-Project stopped — nothing was created') + `\n${e.message}`);
     process.exit(1);
   }
   throw e;

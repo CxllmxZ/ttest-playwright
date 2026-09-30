@@ -43,7 +43,7 @@ Read: #file:prompts/setup-4-create-scenarios.md
 
 - Use file tools directly (`create_file`, `str_replace`, insert/edit tools).
 - **DO NOT** use PowerShell, cmd, bash, or any shell to write files.
-- Encoding: UTF-8 without BOM. Thai text must be preserved exactly.
+- Encoding: UTF-8 without BOM. Non-ASCII text (e.g. Thai) must be preserved exactly.
 - Write real newlines, never literal `` `n `` or `\n`.
 - **Append mode:** add lines after the last line using an edit/insert tool. Do not rewrite existing lines. If your tool can only write the whole file, copy every existing line character-for-character.
 
@@ -92,7 +92,7 @@ Execute in this order.
 
    **Found → append mode.** Read it:
    - First line must be exactly `TC-ID,Module,Feature,Scenario,Value` → else **STOP**: `Existing CSV header is wrong — fix the file first`.
-   - If the file contains `�` or garbled Thai like `à¸` → **STOP**: `Existing CSV has corrupted Thai text (often saved by Excel) — fix the file first`.
+   - If the file contains `�` or garbled text like `à¸` → **STOP**: `Existing CSV has corrupted text (often saved by Excel) — fix the file first`.
    - Next TC-ID = highest existing `TC<number>` + 1, same zero-padding (`TC007` → `TC008`).
    - Module / Feature columns = copy from the first existing data row (keep the file consistent).
    - **Skip** any new scenario whose name already exists in the CSV (exact match). List skipped names in the report. Do not change the existing row.
@@ -106,7 +106,7 @@ Execute in this order.
    ```
    - Scenario and Value **always** wrapped in `"..."`
    - A `"` inside them is written as `""`
-   - Preserve `|<action>` markers, Thai text, and empty items (`,,`) exactly
+   - Preserve `|<action>` markers, non-ASCII text, and empty items (`,,`) exactly
    - Create mode: header line first, then rows
    - Append mode: new rows after the last existing line (make sure the previous last line ends with a newline first)
 
@@ -134,7 +134,7 @@ Execute in this order.
 
 ## Output
 
-Report in Thai:
+Report in the user's language (the language they wrote the prompt in):
 - Mode: สร้างใหม่ / เพิ่มต่อท้าย
 - `<N>` locators
 - Rows written: TC-IDs + names

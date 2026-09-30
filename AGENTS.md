@@ -6,14 +6,14 @@ Instructions for AI agents (GitHub Copilot, Cursor, Claude, ChatGPT) working wit
 
 ## Section 1: Project Overview
 
-**ttest-playwright** = universal Playwright test runner supporting multiple projects with different auth mechanisms. Target users include QA who do not write code — they drive the framework through setup prompts (`AGENT_PROMPTS.md`).
+**ttest-playwright** = universal Playwright test runner supporting multiple projects with different auth mechanisms. Target users include QA who do not write code — they drive the framework through VS Code Tasks and setup prompts (`doc/GUIDE.md`).
 
 ### Folder structure
 
 ```
 ttest-playwright/
 ├── AGENTS.md                            # This file (agent instructions)
-├── doc/AGENT_PROMPTS.md                 # QA paste templates (Thai)
+├── doc/GUIDE.md, GUIDE.th.md           # User guide (EN / TH), prompt templates in Appendix A
 ├── prompts/                             # Setup rules for AI
 │   ├── setup-1-create-project.md        # Tells agent to run scripts/create-project.mjs
 │   ├── setup-3-modify-locators.md
@@ -168,7 +168,7 @@ For Copilot/Cursor with native workspace access.
 
 ## Section 4: Setups
 
-6 setup commands, numbered 1 and 3–7 (Setup 2 was merged into Setup 1). QA paste templates: `doc/AGENT_PROMPTS.md`.
+6 setup commands, numbered 1 and 3–7 (Setup 2 was merged into Setup 1). Paste templates: `doc/GUIDE.md` Appendix A.
 
 **Two ways to run a script setup (1, 5, 7):**
 
@@ -320,7 +320,7 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
 ```csv
 TC-ID,Module,Feature,Scenario,Value
 TC001,Bookings,Bookings,จองนวดไทย,"นวดไทย ฿ 350 60 นาที,วันพฤหัสบดีที่ 1 ตุลาคม,11:00,test,0812345678"
-TC001,Dashboard,Search,Search by Receipt,"INV0001,,,,,,,,,,,"
+TC001,Dashboard,Search,Search by Receipt,"HQ0000020,,,,,,,,,,,"
 TC030,Dashboard,Print,Print Job Sheet,"|click"
 ```
 
@@ -329,7 +329,7 @@ TC030,Dashboard,Print,Print Job Sheet,"|click"
 - TC-ID unique
 - Wrap Value in `"..."` whenever it contains a comma
 - Items separated by `,`; spaces around items are trimmed
-- **Item count MUST equal locator count** — use empty items (`,,`) to skip. With 12 locators, `"INV0001"` is invalid; write `"INV0001,,,,,,,,,,,"`
+- **Item count MUST equal locator count** — use empty items (`,,`) to skip. With 12 locators, `"HQ0000020"` is invalid; write `"HQ0000020,,,,,,,,,,,"`
 - Edit CSV files in **VS Code, not Excel** — Excel may save Thai in a non-UTF-8 encoding and turn values like `0812345678` or `11:00` into numbers/times
 - Commas inside an item are not supported. If a button name contains a comma (e.g., `นวดหินร้อน ฿ 1,200`), write a unique part of the name: `นวดหินร้อน`. Playwright matches button names by substring; if the part matches several buttons, the test fails with a clear "multiple elements" error — make it longer.
 
@@ -444,7 +444,7 @@ Not yet supported (add via Setup 6 when needed): `|check`, `|toggle`.
 
 | CSV Value (4 static locators: textbox, textbox, combobox, button) | Result |
 |---|---|
-| `"INV0001,,,"` | fill [0], skip rest |
+| `"HQ0000020,,,"` | fill [0], skip rest |
 | `"A,B,งานใหม่,|click"` | fill [0], fill [1], pick option [2], click [3] |
 | `"click,,,"` | fill [0] with the text "click" (no `|` = text) |
 

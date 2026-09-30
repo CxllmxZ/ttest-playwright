@@ -160,7 +160,7 @@ Example — datepicker:
 
 ---
 
-## Output (Thai)
+## Output (in the user's language (the language they wrote the prompt in))
 
 - Added: action `|<name>` / locator type `<pattern>` → what it does
 - Scope: **this feature only**. Other features do not have it.

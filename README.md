@@ -1,459 +1,209 @@
 # ttest-playwright
 
-Universal Playwright test runner สำหรับ E2E testing — ทั้ง local development และ production URL
+A Playwright test framework where **QA writes test data in CSV** and the test code is **generated, not hand-written**.
 
-รองรับ 3 auth mechanism (`none` / `microsoft` / `form`) + auto-detect project structure + GitHub Actions CI
+Developers record a flow once with Playwright codegen. QA adds scenarios as rows in a CSV. A script turns the three into a ready-to-run Playwright spec — deterministically, the same output every time.
+
+AI agents (GitHub Copilot, Cursor, …) are used only for the steps that need judgment. Everything mechanical is done by plain Node scripts.
 
 ---
 
-# 📖 Section 1: วิธีการใช้
+## Why
 
-## 🌐 Test-Prod — ทดสอบ Public URL ผ่าน GitHub Actions
+Writing Playwright tests by hand doesn't scale to QA teams that don't code. Letting an AI generate the whole test file does not work reliably either: in practice it renames buttons, invents steps, and corrupts non-ASCII text.
 
-Test-Prod ใช้ทดสอบ URL ที่ public (production, staging) ผ่าน GitHub Actions โดยไม่ต้องลงอะไรที่เครื่อง เหมาะกับเว็บที่ไม่มี auth หรือ auth ที่ CI-friendly
+ttest-playwright splits the work:
 
-### Step 1: Fork หรือ Clone Repo
+| Part | Done by | Why |
+|---|---|---|
+| Record the flow and selectors | Developer (Playwright codegen) | Selectors must come from the real app |
+| Decide what each test case does | QA (CSV) | No code needed |
+| Generate the test files | **Script** | Pure templating — must be exact |
+| Classify locators, draft scenarios, extend the helper | AI agent | Needs judgment |
 
-**Option A: Fork (แนะนำ)**
+---
 
-1. เปิด https://github.com/CxllmxZ/ttest-playwright
-2. คลิก **Fork** มุมขวาบน
-3. เลือก account ของคุณ
+## How it works
 
-**Option B: Clone แล้ว push repo ใหม่**
+Each feature has three source files and four generated files:
+
+```
+_flows/<feature>.ts        dev    one recorded flow, split by markers
+_locators/<feature>.ts     dev    ordered list of fields/buttons
+_scenarios/<feature>.csv   QA     one row per test case
+            │
+            ▼   node scripts/setup-5.mjs
+<feature>/
+├── <feature>.spec.ts      the flow, with test data inserted
+├── <feature>.helper.ts    fills / selects / clicks each item
+├── <feature>.data.ts      CSV rows as test cases
+└── <feature>.types.ts
+```
+
+**Core rule: Locator = WHERE, Value = WHAT.** Position N in the locator list matches item N in the CSV value.
+
+```typescript
+// _locators/bookings.ts
+export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = [
+  (page, value) => page.getByRole('button', { name: value }),  // service  (chosen per test)
+  (page, value) => page.getByRole('button', { name: value }),  // date
+  (page, value) => page.getByRole('button', { name: value }),  // time
+  (page) => page.getByRole('textbox', { name: 'Full name' }),   // name
+  (page) => page.getByRole('textbox', { name: 'Phone' }),       // phone
+];
+```
+
+```csv
+TC-ID,Module,Feature,Scenario,Value
+TC001,Bookings,Bookings,"Book Thai massage","Thai massage,Thursday 1 October,11:00,test,0812345678"
+TC002,Bookings,Bookings,"Book without phone","Thai massage,Thursday 1 October,13:00,test,"
+```
+
+| CSV item | Result |
+|---|---|
+| text at a textbox | fill |
+| text at a combobox | pick option |
+| text at a parametric button | click the button with that name |
+| `\|click` at a fixed button | click |
+| empty | skip |
+
+The full vocabulary is in [`AGENTS.md`](AGENTS.md) Section 9.
+
+---
+
+## Requirements
+
+- **Node.js 18+**
+- **pnpm**
+- **VS Code** (recommended) — setups 1, 5, 7 run as VS Code Tasks
+- **An AI agent with file access** for setups 3, 4, 6 (e.g. GitHub Copilot in Agent mode)
+- **Windows** for the interactive runners and auth helpers (`*.bat` / `*.ps1`). The generator scripts (`scripts/*.mjs`) and the tests themselves are cross-platform.
+
+---
+
+## Install
 
 ```bash
-git clone https://github.com/CxllmxZ/ttest-playwright.git my-tests
-cd my-tests
-git remote remove origin
-git remote add origin https://github.com/YOUR_USERNAME/my-tests.git
-git push -u origin main
+git clone https://github.com/CxllmxZ/ttest-playwright.git
+cd ttest-playwright
+pnpm install
+pnpm exec playwright install
 ```
 
-### Step 2: Setup GitHub Pages
-
-หลังมี repo แล้ว ต้อง enable Pages เพื่อให้ report แสดงเป็น public URL
-
-1. Repo → **Settings** → **Pages**
-2. **Source:** เลือก **GitHub Actions**
-3. Save
-
-Report จะ deploy อัตโนมัติที่ `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/` หลัง test รันสำเร็จ
-
-### Step 3: สร้าง Test
-
-**Folder structure:**
-
-```
-Test-Prod/
-├── nebula-spa/                    ← Project
-│   └── smoke.spec.ts
-└── my-website/                    ← Project ใหม่
-    └── homepage.spec.ts
-```
-
-**ตัวอย่าง test:**
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test('homepage loads', async ({ page }) => {
-  await page.goto('https://mywebsite.com');
-  await expect(page).toHaveTitle(/My Website/);
-});
-```
-
-Commit + push → พร้อมรัน
-
-### Step 4: รัน Test
-
-1. Repo → tab **Actions**
-2. คลิก workflow **"Start-TestCase"**
-3. **Run workflow** (มุมขวาบน)
-4. กรอก path:
-
-```
-Format: project/testcase (ไม่ต้อง .spec.ts)
-
-my-website/homepage    → รัน homepage.spec.ts
-my-website/            → รันทุก test ใน my-website/
-```
-
-5. Run → รอ ~1-2 นาที → เปิด report ที่ Pages URL
+On Windows you can run `Test-Local/setup.bat` instead; it checks the required tools.
 
 ---
 
-## 💻 Test-Local — ทดสอบบนเครื่องตัวเอง + รองรับ Auth
+## Workflow
 
-Test-Local รองรับ project ที่มี login flow — ระบบมี infrastructure ให้แล้ว 3 แบบ
+Full step-by-step guide: [English](doc/GUIDE.md) · [ภาษาไทย](doc/GUIDE.th.md)
 
-### Concept: 3 authType
-
-ทุก **access flow** (login variant ของ project) ต้องระบุ `authType` ใน `project.config.json`:
-
-| authType | ใช้เมื่อ | Auth mechanism |
+| Setup | What | How |
 |---|---|---|
-| `none` | Public หน้า / landing page test | ไม่มี |
-| `microsoft` | Microsoft SSO (Azure AD, MSAL) | Persistent Chromium profile + state.json |
-| `form` | Email/password login (NextAuth, Django, custom) | session-storage.json (auto-detect format) |
+| **1** Create-Project | project + access flow + module + auth config | ⚡ Task |
+| **3** Locators | codegen → ordered locator list | AI prompt |
+| **4** Scenarios | `name : value` lines → CSV (appends to an existing CSV) | AI prompt |
+| **5** Create feature | generate the 4 files | ⚡ Task |
+| **6** Extend helper | add a new `\|action` or locator type to one feature | AI prompt |
+| **7** Update TCs | regenerate `data.ts` after CSV/locator changes | ⚡ Task |
 
-1 project มีได้หลาย access flow (เช่น WEF มีทั้ง Microsoft และ Dealer form login)
+There is no Setup 2 (merged into Setup 1).
 
-### Folder Contract
+**⚡ Task** = VS Code → `Ctrl+Shift+P` → **Run Task** → pick the setup → fill in the prompts. No AI involved; takes about a second.
 
-```
-Test-Local/
-└── <Project>/                        ← โปรเจค
-    └── <AccessFlow>/                 ← 1 project มีได้หลาย flow
-        ├── project.config.json       ← กำหนด authType
-        ├── _login/                   ← (form only)
-        │   ├── login.setup.ts        ← script login (จาก codegen)
-        │   └── session-storage.json  ← auto-gen (gitignored)
-        └── <Module>/                 ← business logic tests
-            └── *.spec.ts
-```
+**AI prompt** = paste the template from the [user guide](doc/GUIDE.md#appendix-a--prompt-templates) into your agent. The agent follows the rules in `prompts/`.
 
-**Auto-detect:** ระบบ scan folder เอง — เพิ่ม project/flow/module ใหม่ = menu เห็นทันที ไม่ต้อง config
+### New feature, step by step
 
----
+1. **Setup 1** — create the module (once per module)
+2. Record the flow with Playwright codegen. Save it as `_flows/<feature>.ts` and add three markers:
+   ```typescript
+   // === SETUP ===        runs once per test (beforeEach): open page, log in
+   // === PER TEST ===     steps before the test data
+   // === DATA ===         test data goes here; steps after it run after the data
+   ```
+3. Put the recorded field/button locators in `_locators/<feature>.ts` → **Setup 3**
+4. Write scenarios → **Setup 4**
+5. **Setup 5**
+6. Run the tests
 
-### Step 1: Install Playwright (ครั้งเดียว)
+### Add or change test cases
 
-Double-click:
-```
-Test-Local/setup.bat
-```
-
-Install: pnpm, `@playwright/test`, Chromium browser (~200MB, cached ที่ `%LOCALAPPDATA%\ms-playwright`)
-
-รอ ~3-5 นาที (ครั้งแรกเท่านั้น)
+- Add: **Setup 4** with only the new scenarios → **Setup 7**
+- Edit / delete: edit the CSV in a text editor (not Excel — it changes encoding and number formats) → **Setup 7**
 
 ---
 
-### Step 2: สร้าง Project + Access Flow
+## Running tests
 
-**ตัวอย่าง:** เพิ่ม project `My-App` ที่ใช้ form login
-
-```powershell
-# สร้าง folder
-New-Item -ItemType Directory Test-Local\My-App\Admin-Login\_login
-New-Item -ItemType Directory Test-Local\My-App\Admin-Login\booking
-
-# สร้าง project.config.json
-@'
-{
-  "authType": "form"
-}
-'@ | Out-File -Encoding utf8 Test-Local\My-App\Admin-Login\project.config.json
-```
-
-**เลือก authType ตาม auth mechanism ของ app จริง:**
-
-- App ใช้ Azure AD / Microsoft SSO → `"microsoft"`
-- App มี login form (email/password) → `"form"`
-- Test หน้าที่ไม่ต้อง login → `"none"`
-
----
-
-### Step 3: Setup Auth (ข้ามได้ถ้า authType = `none`)
-
-**Case A: authType = `microsoft`**
-
-Double-click:
-```
-Authen/Microsoft/setup-microsoft-auth.bat
-```
-
-- Paste URL หน้า login Microsoft ของ app
-- Browser เปิด → login มือ (email + password + MFA ถ้ามี)
-- ปิด browser → state.json ถูก save ที่ `Authen/Microsoft/state.json` (gitignored)
-
-State ใช้ได้กับทุก access flow ที่ authType = microsoft (shared across projects)
-
-**Case B: authType = `form`**
-
-Form login ต้องทำ **2 sub-step:**
-
-**Sub-step B1 — Record login flow (สร้าง `login.setup.ts`):**
-
-Double-click:
-```
-Test-Local/run-codegen.bat
-```
-
-- เลือก "Record login and test flow (clean session)"
-- Enter URL หน้า login เช่น `http://localhost:8787/admin/login`
-- Login มือใน browser → codegen บันทึก actions
-- Copy code จาก Playwright Inspector
-- Save เป็น `login.setup.ts` ใน `_login/` folder
-
-**Template `login.setup.ts`:**
-
-```typescript
-import { test as setup } from '@playwright/test';
-import {
-  getFormLoginCredentials,
-  saveStorageState,       // สำหรับ cookie-based (NextAuth)
-  // saveSessionStorage,  // สำหรับ sessionStorage-based (custom)
-} from '../../../../Authen/Form-Login/form-auth.helper';
-
-setup('Create login session', async ({ page }) => {
-  const { username, password, sessionStoragePath } =
-    getFormLoginCredentials();
-
-  await page.goto('http://localhost:8787/admin/login');
-
-  await page.getByRole('textbox', { name: 'อีเมล' }).fill(username);
-  await page.getByRole('textbox', { name: 'รหัสผ่าน' }).fill(password);
-  await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
-
-  // Verify login สำเร็จ
-  await expect(page).not.toHaveURL(/\/login/);
-
-  // Save session
-  await saveStorageState({
-    page,
-    outputPath: sessionStoragePath,
-  });
-});
-```
-
-**เลือก helper function ตาม auth mechanism:**
-- `saveStorageState()` — cookie-based (NextAuth, Django, standard session)
-- `saveSessionStorage()` — auth ที่เก็บใน `sessionStorage` (SPA บางตัว)
-
-**Sub-step B2 — Create session:**
-
-Double-click:
-```
-Authen/Form-Login/setup-form-auth.bat
-```
-
-- Menu เลือก project + access flow
-- Enter username / password
-- Script รัน `login.setup.ts` → save `session-storage.json` ใน `_login/`
-
----
-
-### Step 4: Record Test Case
-
-Double-click:
-```
-Test-Local/run-codegen.bat
-```
-
-**เลือก mode ตาม authType:**
-
-| authType | Mode ที่ใช้ได้ |
+| `authType` | Command |
 |---|---|
-| none | Record login and test flow (clean) |
-| microsoft | Open authenticated browser (Pick locators) |
-| form (storageState) | Open authenticated browser / Full codegen with saved session |
-| form (sessionStorage) | Open authenticated browser (Pick locators) |
+| `none` | `pnpm exec playwright test Test-Local/<Project>/<AccessFlow>/<Module>/<feature>` |
+| `microsoft`, `form` | `Test-Local/run-local.bat` → pick project / access flow / module (loads the login session) |
 
-- Enter URL ของหน้าที่จะ test (หลัง login แล้ว)
-- Codegen เปิดใน state logged-in → record actions
-- Copy code → save เป็น `.spec.ts` ใน `<Module>/`
+Useful flags for `playwright test`: `--headed`, `--ui`, `-g "TC001"`. Report: `pnpm exec playwright show-report`.
+
+The generator prints the right command for each feature.
 
 ---
 
-### Step 5: Run Tests
+## Authentication
 
-Double-click:
-```
-Test-Local/run-local.bat
-```
+Set per access flow in `Test-Local/<Project>/<AccessFlow>/project.config.json`:
 
-**Interactive menu 4 ระดับ:**
+| `authType` | Setup before running tests |
+|---|---|
+| `none` | nothing |
+| `microsoft` | `Authen/Microsoft/setup-microsoft-auth.bat` — log in once, session is saved |
+| `form` | see [`doc/FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](doc/FORM_LOGIN_SESSION_STORAGE_GUIDE.md) |
 
-```
-Level 1: Project             (Nebula-Spa / WEF / My-App)
-Level 2: Access Flow         (Admin-Login / Microsoft-Login / Dealer-Login)
-Level 3: Scope               (ALL modules / เลือก module)
-Level 4: Test                (ALL tests / เลือกไฟล์)
-```
-
-- Auto-inject auth state ตาม `project.config.json`
-- Test รัน → report เปิดอัตโนมัติ
-- Post-run: run again / change scope / back to menu
+Session files, browser profiles and `.env` are git-ignored.
 
 ---
 
-## 🔄 เพิ่ม Project ใหม่
-
-**Auto-detect** — ไม่ต้อง config เพิ่ม แค่:
-
-1. สร้าง folder ตาม contract (project → access flow → module)
-2. เพิ่ม `project.config.json` ใน access flow
-3. Setup auth (ถ้า authType != none)
-4. เพิ่ม `.spec.ts` ใน module
-5. รัน `run-local.bat` → menu เห็นทันที
-
----
-
-# 📁 Section 2: Project Structure & Overview
-
-## Folder Structure
+## Project layout
 
 ```
 ttest-playwright/
-│
-├── .github/
-│   └── workflows/
-│       └── Start-TestCase.yml         ← GitHub Actions CI
-│
-├── Authen/                             ← Shared auth infrastructure
-│   ├── Microsoft/
-│   │   ├── setup-microsoft-auth.bat   ← Launcher
-│   │   ├── setup-microsoft-auth.ps1
-│   │   ├── profile/                    ← Persistent Chromium (gitignored)
-│   │   └── state.json                  ← Saved auth (gitignored)
-│   │
-│   └── Form-Login/
-│       ├── setup-form-auth.bat         ← Launcher
-│       ├── setup-form-auth.ps1
-│       ├── form-auth.helper.ts         ← Shared save/load helpers
-│       ├── form-codegen.cjs            ← Authenticated codegen tool
-│       └── playwright.form-auth.config.ts
-│
-├── Test-Prod/                          ← Public URL tests (CI-friendly)
-│   ├── nebula-spa/
-│   │   └── smoke.spec.ts
-│   └── demo-todo/
-│       └── todo.spec.ts
-│
-├── Test-Local/                         ← Local + auth-required tests
-│   ├── setup.bat                       ← Install Playwright (ครั้งเดียว)
-│   ├── run-local.bat                   ← Test runner launcher
-│   ├── run-local.ps1                   ← Interactive menu
-│   ├── run-codegen.bat                 ← Codegen launcher
-│   ├── run-codegen.ps1                 ← Codegen menu
-│   │
-│   ├── Nebula-Spa/                     ← Project (form + NextAuth)
-│   │   └── Admin-Login/                ← Access Flow
-│   │       ├── project.config.json     ← authType: form
-│   │       ├── _login/
-│   │       │   ├── login.setup.ts
-│   │       │   └── session-storage.json (gitignored)
-│   │       └── booking/
-│   │           └── booking-status-change.spec.ts
-│   │
-│   └── WEF/                            ← Project (multi-flow)
-│       ├── Microsoft-Login/            ← Access Flow (microsoft)
-│       │   ├── project.config.json
-│       │   └── car-model/
-│       │       └── car-model-add.spec.ts
-│       │
-│       └── Dealer-Login/               ← Access Flow (form/sessionStorage)
-│           ├── project.config.json
-│           ├── _login/
-│           │   ├── login.setup.ts
-│           │   └── session-storage.json (gitignored)
-│           └── (modules)/
-│
-├── node_modules/                       ← (gitignored)
-├── playwright-report/                  ← (gitignored)
-├── test-results/                       ← (gitignored)
-│
-├── playwright.config.ts                ← Main config — routes auth ตาม env var
-├── package.json
-└── README.md
+├── AGENTS.md              rules for AI agents (also the full reference)
+├── doc/                   user guide (GUIDE.md, GUIDE.th.md) and login guides
+├── prompts/               rule files for AI-driven setups
+├── scripts/               generators: create-project.mjs, setup-5.mjs
+├── .vscode/tasks.json     Setup 1 / 5 / 7 as VS Code Tasks
+├── Authen/                login helpers (Microsoft, form)
+├── Test-Local/            tests run through the local runner
+│   ├── run-local.bat      interactive runner
+│   └── <Project>/<AccessFlow>/<Module>/
+│       ├── _flows/  _locators/  _scenarios/
+│       └── <feature>/     generated
+├── Test-Prod/             tests against public URLs
+└── src/                   experimental YAML runner (not used by the setup workflow)
 ```
-
-## Auth Architecture
-
-**Env var contract** (playwright.config.ts อ่านตอนรัน test):
-
-| authType | AUTH_TYPE | AUTH_KIND | AUTH_STATE_PATH |
-|---|---|---|---|
-| `none` | none | - | - |
-| `microsoft` | microsoft | (default storageState) | `Authen/Microsoft/state.json` |
-| `form` (cookie) | form | storageState | `<flow>/_login/session-storage.json` |
-| `form` (sessionStorage) | form | sessionStorage | `<flow>/_login/session-storage.json` |
-
-`run-local.ps1` **auto-detect** format ของ session file → set `AUTH_KIND` เอง
-
-## ระบบทำอะไรบ้าง
-
-**1. GitHub Actions (Test-Prod)**
-- Auto CI/CD สำหรับทดสอบ public URLs
-- Trigger manual ผ่าน Actions UI
-- Deploy report ไป GitHub Pages
-- Free unlimited (public repo)
-
-**2. Interactive Local Menu (Test-Local)**
-- PowerShell menu with arrow keys
-- Auto-detect projects / access flows / modules
-- Auto-inject auth state ตาม config
-- Post-run navigation (run again / change scope)
-
-**3. Multi-Auth Support**
-- Microsoft SSO: persistent profile (handle refresh, MFA)
-- Form Login (cookies): standard Playwright `storageState`
-- Form Login (sessionStorage): custom `addInitScript()` (WIP)
-- Universal setup scripts — 1 tool ใช้ทุก project
-
-**4. Playwright Codegen**
-- Record browser actions → generate test code
-- Support authenticated recording (load session)
-- 3 modes: fresh record / full codegen with session / inspect only
-
-**5. HTML Reports**
-- Playwright built-in report
-- Screenshots, videos, traces on failure
-- Debug ผ่าน Playwright trace viewer
-
-## Technologies
-
-- **Playwright** — E2E testing framework
-- **TypeScript** — Type-safe test code
-- **GitHub Actions** — CI/CD
-- **GitHub Pages** — Report hosting
-- **PowerShell** — Local interactive menu (Windows)
-- **pnpm** — Package manager
-
-## Design Principles
-
-**Separation of concerns:**
-- **Test-Prod** = public URL tests, CI-friendly (flat structure: project/spec)
-- **Test-Local** = auth-required tests (3-level: project/flow/module)
-
-**Universal auth infrastructure:**
-- `Authen/` แยกออกจาก tests → shared ระหว่าง projects
-- Setup scripts (Microsoft + Form) เป็น universal — 1 tool ใช้ได้ทุก project
-- Auth mechanism configured per access flow ผ่าน `project.config.json`
-
-**Auto-detection:**
-- ระบบ scan folder → รู้จัก project / flow / module ใหม่อัตโนมัติ
-- ไม่ต้อง manual config เมื่อเพิ่ม test files
-
-**Zero project knowledge in framework:**
-- Runner + config = universal (ไม่มี hard-code project name)
-- Login flow เป็น per-project (ใน `login.setup.ts` แต่ละ flow)
-- Save/load session logic = shared helper
-
-## ข้อจำกัด
-
-**GitHub Actions:**
-- ไม่สามารถทดสอบ localhost
-- Cloudflare Turnstile block Playwright → ต้องรัน local
-- Microsoft/form auth ต้องมี CI-safe credentials
-
-**Local:**
-- ต้องมี Node.js
-- Chromium ~200MB (cached ที่ system default)
-- Auth ต้อง regenerate เมื่อ session expire
-
-**Form Login (sessionStorage):**
-- ยังไม่รองรับ inject ใน test run (playwright.config.ts throw)
-- Roadmap: custom fixture ด้วย `addInitScript()`
-
-## Credits
-
-Built with Playwright by Microsoft — https://playwright.dev
 
 ---
 
-**Live demo:** https://cxllmxz.github.io/ttest-playwright/
+## Example project
 
-**Repo:** https://github.com/CxllmxZ/ttest-playwright
+`Test-Local/Nebula-Spa/No-Auth/Bookings` is a complete example: three parametric buttons, two text fields, generated files included. It targets a booking demo app at `http://localhost:8787`, which is not part of this repository — read it as a reference.
+
+---
+
+## Known limitations
+
+- **Dates in CSV are absolute.** A value like `Thursday 1 October` stops working once that date has passed. Relative dates are not supported yet.
+- **Setup 6 extensions are per feature.** Regenerating a feature with Setup 5 rebuilds `helper.ts` and drops them. Make an extension permanent by adding it to the helper template in `scripts/setup-5.mjs`.
+- **File names are case-sensitive.** `_flows/`, `_locators/`, `_scenarios/` and the feature folder must use the exact same name. The generator checks this, because Windows hides the mismatch and Linux CI does not.
+- **Default verification is shallow.** Generated tests check that no error dialog appears and the page stays on the app's origin. Add feature-specific `expect(...)` calls to `defaultVerify` when needed.
+- **Buttons without an accessible name** work through position-based locators (`.nth()`), which break when the page layout changes. If you own the app, add `aria-label`s.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. When changing generated code, change the template in `scripts/setup-5.mjs` — it is the single source of truth — and update `AGENTS.md` Section 8/9 if behavior changes.
+
+---
+
+## License
+
+[MIT](LICENSE)

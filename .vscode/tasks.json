@@ -1,4 +1,5 @@
 {
+  // Script language: set TTEST_LANG below to "th" or "en". Empty = follow the system language.
   "version": "2.0.0",
   "tasks": [
     {
@@ -12,12 +13,22 @@
         "${input:module}",
         "${input:authType}"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "TTEST_LANG": ""
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true,
+        "focus": true
+      },
       "problemMatcher": []
     },
     {
-      "label": "Setup 5 — สร้าง feature",
+      "label": "Setup 5 — Generate feature",
       "type": "process",
       "command": "node",
       "args": [
@@ -27,12 +38,22 @@
         "${input:module}",
         "${input:feature}"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "TTEST_LANG": ""
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true,
+        "focus": true
+      },
       "problemMatcher": []
     },
     {
-      "label": "Setup 7 — อัปเดต TC (data.ts)",
+      "label": "Setup 7 — Update test data (data.ts)",
       "type": "process",
       "command": "node",
       "args": [
@@ -43,8 +64,18 @@
         "${input:feature}",
         "--data-only"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true, "focus": true },
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "TTEST_LANG": ""
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true,
+        "focus": true
+      },
       "problemMatcher": []
     }
   ],
@@ -52,31 +83,40 @@
     {
       "id": "project",
       "type": "promptString",
-      "description": "Project (ชื่อโฟลเดอร์ใน Test-Local เช่น Nebula-Spa)"
+      "description": "Project (folder in Test-Local, e.g. Nebula-Spa)"
     },
     {
       "id": "accessFlow",
       "type": "promptString",
-      "description": "AccessFlow (เช่น No-Auth, Microsoft-Login)"
+      "description": "AccessFlow (e.g. No-Auth, Microsoft-Login)"
     },
     {
       "id": "module",
       "type": "promptString",
-      "description": "Module (เช่น Bookings, Dashboard)"
+      "description": "Module (e.g. Bookings, Dashboard)"
     },
     {
       "id": "feature",
       "type": "promptString",
-      "description": "Feature (ชื่อไฟล์ใน _flows / _locators / _scenarios เช่น bookings)"
+      "description": "Feature (file name in _flows / _locators / _scenarios, e.g. bookings)"
     },
     {
       "id": "authType",
       "type": "pickString",
-      "description": "AuthType — วิธี login ของ access flow นี้",
+      "description": "AuthType — how this access flow logs in",
       "options": [
-        { "label": "none — ไม่ต้อง login", "value": "none" },
-        { "label": "microsoft — login ด้วย Microsoft", "value": "microsoft" },
-        { "label": "form — login ด้วย email/password", "value": "form" }
+        {
+          "label": "none — no login",
+          "value": "none"
+        },
+        {
+          "label": "microsoft — Microsoft SSO",
+          "value": "microsoft"
+        },
+        {
+          "label": "form — email/password form",
+          "value": "form"
+        }
       ]
     }
   ]

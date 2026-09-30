@@ -1,22 +1,24 @@
 #!/usr/bin/env node
-// Setup 5 — สร้าง 4 ไฟล์ของ feature (types / helper / spec / data) แบบไม่ใช้ AI
+// Setup 5 — generate the 4 feature files (types / helper / spec / data) without AI
 //
 // Usage:
 //   node scripts/setup-5.mjs <Project> <AccessFlow> <Module> <feature> [--dry-run]
 //   node scripts/setup-5.mjs <Project> <AccessFlow> <Module> <feature> --data-only   (Setup 7)
 //
-// --data-only: feature มีอยู่แล้ว → เขียนใหม่เฉพาะ <feature>.data.ts จาก CSV
-//              action ที่ยอมรับ = case ใน helper.ts ของ feature (รวมที่ Setup 6 เพิ่ม)
+// --data-only: feature exists → rewrite only <feature>.data.ts from the CSV
+//              allowed |actions = cases in this feature's helper.ts (incl. Setup 6 additions)
+//
+// Language: auto from system locale (Thai → th, else en). Override: TTEST_LANG=th | en
 //
 // Example:
 //   node scripts/setup-5.mjs Nebula-Spa No-Auth Bookings bookings
 //
 // Source of truth:
-//   _flows/<feature>.ts      -> spec.ts  (ก๊อปตรงตัวตาม marker)
-//   _locators/<feature>.ts   -> helper.ts (import ตอนรัน) + จำนวนช่อง N
-//   _scenarios/<feature>.csv -> data.ts  (แต่ละแถวต้องมีค่า N ตัว)
+//   _flows/<feature>.ts      -> spec.ts  (copied verbatim, split by markers)
+//   _locators/<feature>.ts   -> helper.ts (imported at runtime) + slot count N
+//   _scenarios/<feature>.csv -> data.ts  (every row must have N items)
 //
-// Exit code: 0 = สำเร็จ, 1 = มีปัญหา (ไม่มีไฟล์ใดถูกเขียน)
+// Exit code: 0 = success, 1 = problem (nothing written)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,6 +28,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VALID_AUTH = ['none', 'microsoft', 'form'];
 const ACTIONS = ['click'];
 let LABEL = 'Setup 5';
+
+function detectLang() {
+  const env = (process.env.TTEST_LANG || '').toLowerCase();
+  if (env === 'th' || env === 'en') return env;
+  const loc = Intl.DateTimeFormat().resolvedOptions().locale || '';
+  return loc.toLowerCase().startsWith('th') ? 'th' : 'en';
+}
+const LANG = detectLang();
+const t = (th, en) => (LANG === 'th' ? th : en);
 
 class SetupError extends Error {}
 const fail = (msg) => {
@@ -58,28 +69,36 @@ function readText(file) {
     (buf[0] === 0xfe && buf[1] === 0xff)
   ) {
     fail(
-      `${rel(file)} ถูกบันทึกเป็น UTF-16 (มักเกิดจาก PowerShell)\n` +
-        `  → เปิดใน VS Code แล้วเลือก "Save with Encoding" → UTF-8`
+      t(
+        `${rel(file)} ถูกบันทึกเป็น UTF-16 (มักเกิดจาก PowerShell)\n  → เปิดใน VS Code แล้วเลือก "Save with Encoding" → UTF-8`,
+        `${rel(file)} is saved as UTF-16 (often caused by PowerShell)\n  → open it in VS Code → "Save with Encoding" → UTF-8`
+      )
     );
   }
   let text = buf.toString('utf8');
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   if (/à¸|à¹/.test(text)) {
     fail(
-      `${rel(file)} มีภาษาไทยเพี้ยน (เช่น "à¸...")\n` +
-        `  → ไฟล์นี้เสียจากขั้นก่อนหน้า ต้องแก้ข้อความไทยให้ถูกก่อน แล้วบันทึกเป็น UTF-8`
+      t(
+        `${rel(file)} มีภาษาไทยเพี้ยน (เช่น "à¸...")\n  → ไฟล์นี้เสียจากขั้นก่อนหน้า ต้องแก้ข้อความให้ถูกก่อน แล้วบันทึกเป็น UTF-8`,
+        `${rel(file)} contains garbled text (e.g. "à¸...")\n  → the file was damaged by an earlier step; fix the text and save as UTF-8`
+      )
     );
   }
   if (text.includes('\uFFFD')) {
     fail(
-      `${rel(file)} มีตัวอักษร � (ภาษาไทยเสีย — มักเกิดจากบันทึกด้วย Excel)\n` +
-        '  → ถ้าใช้ Excel ให้ Save As แบบ "CSV UTF-8" หรือเปิดแก้ใน VS Code แทน'
+      t(
+        `${rel(file)} มีตัวอักษร � (ข้อความเสีย — มักเกิดจากบันทึกด้วย Excel)\n  → ถ้าใช้ Excel ให้ Save As แบบ "CSV UTF-8" หรือเปิดแก้ใน VS Code แทน`,
+        `${rel(file)} contains � (broken text — usually saved by Excel)\n  → in Excel use Save As "CSV UTF-8", or edit the file in VS Code instead`
+      )
     );
   }
   if (/`n/.test(text)) {
     fail(
-      `${rel(file)} มีตัวอักษร \`n หลุดเข้ามา (เศษจาก PowerShell)\n` +
-        '  → แก้ให้เป็นการขึ้นบรรทัดจริง'
+      t(
+        `${rel(file)} มีตัวอักษร \`n หลุดเข้ามา (เศษจาก PowerShell)\n  → แก้ให้เป็นการขึ้นบรรทัดจริง`,
+        `${rel(file)} contains a literal \`n (PowerShell leftover)\n  → replace it with a real line break`
+      )
     );
   }
   return text.replace(/\r\n?/g, '\n');
@@ -112,7 +131,7 @@ function escapeRegex(s) {
 
 // ------------------------------------------------------------- scanners
 
-// แยก array body ออกเป็น entries ระดับบนสุด (รู้จัก string และ comment)
+// Split array body into top-level entries (string- and comment-aware)
 function splitTopLevel(src, startIdx) {
   const entries = [];
   let depth = 0;
@@ -127,7 +146,7 @@ function splitTopLevel(src, startIdx) {
     }
     if (ch === '/' && next === '*') {
       i = src.indexOf('*/', i + 2);
-      if (i === -1) fail('_locators มี comment /* ที่ไม่ได้ปิด');
+      if (i === -1) fail(t('_locators มี comment /* ที่ไม่ได้ปิด', '_locators has an unclosed /* comment'));
       i += 2;
       continue;
     }
@@ -157,7 +176,7 @@ function splitTopLevel(src, startIdx) {
     }
     i++;
   }
-  fail('_locators: หา "]" ปิด array ไม่เจอ');
+  fail(t('_locators: หา "]" ปิด array ไม่เจอ', '_locators: closing "]" of the array not found'));
 }
 
 function parseCsv(text) {
@@ -184,7 +203,7 @@ function parseCsv(text) {
       field = '';
     } else field += ch;
   }
-  if (q) fail('_scenarios: มีเครื่องหมาย " ที่เปิดแล้วไม่ได้ปิด');
+  if (q) fail(t('_scenarios: มีเครื่องหมาย " ที่เปิดแล้วไม่ได้ปิด', '_scenarios: a " quote is opened but never closed'));
   if (field !== '' || row.length) {
     row.push(field);
     rows.push(row);
@@ -203,15 +222,15 @@ function readFlows(file) {
     const idx = lines
       .map((l, i) => (l.trim() === marker ? i : -1))
       .filter((i) => i >= 0);
-    if (idx.length === 0) fail(`${rel(file)} ไม่มีบรรทัด ${marker}`);
-    if (idx.length > 1) fail(`${rel(file)} มี ${marker} ซ้ำ ${idx.length} ครั้ง`);
+    if (idx.length === 0) fail(t(`${rel(file)} ไม่มีบรรทัด ${marker}`, `${rel(file)} has no ${marker} line`));
+    if (idx.length > 1) fail(t(`${rel(file)} มี ${marker} ซ้ำ ${idx.length} ครั้ง`, `${rel(file)} has ${marker} ${idx.length} times (must be once)`));
     return idx[0];
   };
   const iS = find('// === SETUP ===');
   const iP = find('// === PER TEST ===');
   const iD = find('// === DATA ===');
   if (!(iS < iP && iP < iD)) {
-    fail(`${rel(file)} ลำดับ marker ผิด ต้องเป็น SETUP → PER TEST → DATA`);
+    fail(t(`${rel(file)} ลำดับ marker ผิด ต้องเป็น SETUP → PER TEST → DATA`, `${rel(file)} markers are out of order — must be SETUP → PER TEST → DATA`));
   }
 
   let post = lines.slice(iD + 1);
@@ -220,7 +239,7 @@ function readFlows(file) {
     let k = post.length - 1;
     while (k >= 0 && post[k].trim() === '') k--;
     if (k < 0 || !/^\s*\}\s*\)\s*;?\s*$/.test(post[k])) {
-      fail(`${rel(file)} หา "});" ปิดท้าย test(...) ไม่เจอ`);
+      fail(t(`${rel(file)} หา "});" ปิดท้าย test(...) ไม่เจอ`, `${rel(file)}: closing "});" of test(...) not found`));
     }
     post = post.slice(0, k);
   }
@@ -246,28 +265,30 @@ function readLocators(file, exportName) {
   if (!m) {
     const found = [...text.matchAll(/export\s+const\s+(\w+)/g)].map((x) => x[1]);
     fail(
-      `${rel(file)} ไม่มี export ชื่อ ${exportName}` +
-        (found.length ? ` (เจอ: ${found.join(', ')})` : '')
+      t(`${rel(file)} ไม่มี export ชื่อ ${exportName}`, `${rel(file)} does not export ${exportName}`) +
+        (found.length ? t(` (เจอ: ${found.join(', ')})`, ` (found: ${found.join(', ')})`) : '')
     );
   }
   const typeText = m[1].replace(/\s+/g, '');
   const entries = splitTopLevel(text, m.index + m[0].length);
-  if (entries.length === 0) fail(`${rel(file)} array ว่าง ไม่มี locator`);
+  if (entries.length === 0) fail(t(`${rel(file)} array ว่าง ไม่มี locator`, `${rel(file)}: the array is empty`));
 
   const locators = entries.map((src, i) => {
     let params;
     const paren = src.match(/^\(([^)]*)\)\s*=>/);
     if (paren) params = paren[1].split(',').map((p) => p.trim()).filter(Boolean);
     else if (/^\w+\s*=>/.test(src)) params = [src.match(/^(\w+)/)[1]];
-    else fail(`${rel(file)} locator [${i}] ไม่ใช่ arrow function: ${src.slice(0, 60)}`);
+    else fail(t(`${rel(file)} locator [${i}] ไม่ใช่ arrow function: ${src.slice(0, 60)}`, `${rel(file)} locator [${i}] is not an arrow function: ${src.slice(0, 60)}`));
     if (params.some((p) => p.includes('='))) {
       fail(
-        `${rel(file)} locator [${i}] มีค่า default ใน parameter\n` +
-          '  → parametric ต้องเป็น (page, value) => ... ห้ามมี value = ...'
+        t(
+          `${rel(file)} locator [${i}] มีค่า default ใน parameter\n  → parametric ต้องเป็น (page, value) => ... ห้ามมี value = ...`,
+          `${rel(file)} locator [${i}] has a default parameter value\n  → parametric locators must be (page, value) => ... without value = ...`
+        )
       );
     }
     if (params.length < 1 || params.length > 2) {
-      fail(`${rel(file)} locator [${i}] ต้องรับ 1 หรือ 2 parameter`);
+      fail(t(`${rel(file)} locator [${i}] ต้องรับ 1 หรือ 2 parameter`, `${rel(file)} locator [${i}] must take 1 or 2 parameters`));
     }
     const parametric = params.length === 2;
     let kind = 'other';
@@ -283,12 +304,14 @@ function readLocators(file, exportName) {
   const newType = 'Array<(page:Page,value?:string)=>Locator>';
   const oldType = 'Array<(page:Page)=>Locator>';
   if (typeText !== newType && typeText !== oldType) {
-    fail(`${rel(file)} type ของ array ไม่ถูกต้อง ต้องเป็น Array<(page: Page, value?: string) => Locator>`);
+    fail(t(`${rel(file)} type ของ array ไม่ถูกต้อง ต้องเป็น Array<(page: Page, value?: string) => Locator>`, `${rel(file)}: wrong array type — must be Array<(page: Page, value?: string) => Locator>`));
   }
   if (hasParam && typeText === oldType) {
     fail(
-      `${rel(file)} มี parametric locator แต่ type ยังเป็นแบบเก่า\n` +
-        '  → เปลี่ยนเป็น Array<(page: Page, value?: string) => Locator>'
+      t(
+        `${rel(file)} มี parametric locator แต่ type ยังเป็นแบบเก่า\n  → เปลี่ยนเป็น Array<(page: Page, value?: string) => Locator>`,
+        `${rel(file)} has parametric locators but uses the old type\n  → change it to Array<(page: Page, value?: string) => Locator>`
+      )
     );
   }
   return locators;
@@ -296,11 +319,11 @@ function readLocators(file, exportName) {
 
 function readScenarios(file, locators, { actions = ACTIONS, checkKinds = true } = {}) {
   const rows = parseCsv(readText(file));
-  if (rows.length === 0) fail(`${rel(file)} ว่างเปล่า`);
+  if (rows.length === 0) fail(t(`${rel(file)} ว่างเปล่า`, `${rel(file)} is empty`));
   const header = rows[0].cells.map((c) => c.trim().toLowerCase());
   const expected = ['tc-id', 'module', 'feature', 'scenario', 'value'];
   if (header.join(',') !== expected.join(',')) {
-    fail(`${rel(file)} หัวตารางต้องเป็น: TC-ID,Module,Feature,Scenario,Value`);
+    fail(t(`${rel(file)} หัวตารางต้องเป็น: TC-ID,Module,Feature,Scenario,Value`, `${rel(file)}: header must be TC-ID,Module,Feature,Scenario,Value`));
   }
 
   const N = locators.length;
@@ -311,25 +334,29 @@ function readScenarios(file, locators, { actions = ACTIONS, checkKinds = true } 
   for (const { cells, line } of rows.slice(1)) {
     if (cells.length !== 5) {
       errors.push(
-        `บรรทัด ${line}: มี ${cells.length} คอลัมน์ ต้องมี 5` +
-          (cells.length > 5 ? ' — Value มี comma แต่ไม่ได้ครอบด้วย "..."' : '')
+        t(`บรรทัด ${line}: มี ${cells.length} คอลัมน์ ต้องมี 5`, `line ${line}: ${cells.length} columns, expected 5`) +
+          (cells.length > 5 ? t(' — Value มี comma แต่ไม่ได้ครอบด้วย "..."', ' — Value contains commas but is not wrapped in "..."') : '')
       );
       continue;
     }
     const [id, , , scenario, raw] = cells.map((c) => c.trim());
     if (!id) {
-      errors.push(`บรรทัด ${line}: ไม่มี TC-ID`);
+      errors.push(t(`บรรทัด ${line}: ไม่มี TC-ID`, `line ${line}: missing TC-ID`));
       continue;
     }
-    if (seen.has(id)) errors.push(`${id}: TC-ID ซ้ำ`);
+    if (seen.has(id)) errors.push(t(`${id}: TC-ID ซ้ำ`, `${id}: duplicate TC-ID`));
     seen.add(id);
 
     const values = raw.split(',').map((v) => v.trim());
     if (values.length !== N) {
       const diff = N - values.length;
       errors.push(
-        `${id}: มี ${values.length} ค่า แต่ต้องมี ${N} ค่า (ตามจำนวน locator) → ` +
-          (diff > 0 ? `ขาด ${diff} ช่อง (เติม comma ท้าย)` : `เกิน ${-diff} ช่อง`)
+        t(
+          `${id}: มี ${values.length} ค่า แต่ต้องมี ${N} ค่า (ตามจำนวน locator) → ` +
+            (diff > 0 ? `ขาด ${diff} ช่อง (เติม comma ท้าย)` : `เกิน ${-diff} ช่อง`),
+          `${id}: ${values.length} items, expected ${N} (one per locator) → ` +
+            (diff > 0 ? `${diff} missing (add trailing commas)` : `${-diff} too many`)
+        )
       );
       continue;
     }
@@ -339,21 +366,24 @@ function readScenarios(file, locators, { actions = ACTIONS, checkKinds = true } 
       if (v.startsWith('|')) {
         const action = v.slice(1);
         if (!actions.includes(action)) {
-          errors.push(`${id} ช่อง ${i + 1}: ไม่รู้จัก action "${v}" (รองรับ: ${actions.map((a) => '|' + a).join(', ')}) → ถ้าต้องการ action ใหม่ใช้ Setup 6`);
+          errors.push(t(
+            `${id} ช่อง ${i + 1}: ไม่รู้จัก action "${v}" (รองรับ: ${actions.map((a) => '|' + a).join(', ')}) → ถ้าต้องการ action ใหม่ใช้ Setup 6`,
+            `${id} item ${i + 1}: unknown action "${v}" (supported: ${actions.map((a) => '|' + a).join(', ')}) → use Setup 6 to add a new action`
+          ));
         } else if (loc.parametric) {
-          errors.push(`${id} ช่อง ${i + 1}: ช่องนี้เป็นปุ่มแบบเลือกชื่อ ต้องใส่ชื่อปุ่ม ไม่ใช่ ${v}`);
+          errors.push(t(`${id} ช่อง ${i + 1}: ช่องนี้เป็นปุ่มแบบเลือกชื่อ ต้องใส่ชื่อปุ่ม ไม่ใช่ ${v}`, `${id} item ${i + 1}: this position is a button chosen by name — give the button name, not ${v}`));
         }
       } else if (checkKinds && !loc.parametric && loc.kind === 'other') {
-        errors.push(`${id} ช่อง ${i + 1}: ช่องนี้กรอกข้อความไม่ได้ (ไม่ใช่ textbox/combobox) → ใช้ |click หรือเว้นว่าง`);
+        errors.push(t(`${id} ช่อง ${i + 1}: ช่องนี้กรอกข้อความไม่ได้ (ไม่ใช่ textbox/combobox) → ใช้ |click หรือเว้นว่าง`, `${id} item ${i + 1}: this position cannot take text (not a textbox/combobox) → use |click or leave empty`));
       }
     });
     cases.push({ id, scenario, values });
   }
 
   if (errors.length) {
-    fail(`${rel(file)} มีปัญหา ${errors.length} จุด:\n  - ` + errors.join('\n  - '));
+    fail(t(`${rel(file)} มีปัญหา ${errors.length} จุด:`, `${rel(file)} has ${errors.length} problem(s):`) + '\n  - ' + errors.join('\n  - '));
   }
-  if (cases.length === 0) fail(`${rel(file)} ไม่มีแถวข้อมูล`);
+  if (cases.length === 0) fail(t(`${rel(file)} ไม่มีแถวข้อมูล`, `${rel(file)} has no data rows`));
   return cases;
 }
 
@@ -523,7 +553,7 @@ ${rows.join('\n')}
 
 // ------------------------------------------------------------------ main
 
-// ชื่อไฟล์ต้องตรงตัวพิมพ์ (Windows ไม่แยก แต่ Linux/CI แยก)
+// File names must match case exactly (Windows ignores case, Linux/CI does not)
 function caseMismatch(file) {
   const dir = path.dirname(file);
   const name = path.basename(file);
@@ -537,12 +567,16 @@ function checkSources(files) {
   const problems = [];
   for (const f of files) {
     const other = caseMismatch(f);
-    if (other) problems.push(`${rel(f)} → ไฟล์จริงชื่อ "${other}" (ตัวพิมพ์ต่างกัน — Linux/CI จะหาไม่เจอ)`);
+    if (other) problems.push(t(`${rel(f)} → ไฟล์จริงชื่อ "${other}" (ตัวพิมพ์ต่างกัน — Linux/CI จะหาไม่เจอ)`, `${rel(f)} → actual file is "${other}" (case differs — Linux/CI will not find it)`));
     else if (!fs.existsSync(f)) problems.push(rel(f));
   }
   if (problems.length) {
-    fail('ไม่พบไฟล์ต้นทาง หรือชื่อตัวพิมพ์ไม่ตรง:\n  - ' + problems.join('\n  - ') +
-      '\n  → ใช้ชื่อ feature ให้ตรงกับชื่อไฟล์ทุกตัวอักษร (แนะนำตัวพิมพ์เล็กทั้งหมด)');
+    fail(
+      t('ไม่พบไฟล์ต้นทาง หรือชื่อตัวพิมพ์ไม่ตรง:', 'Source file missing or name case differs:') +
+        '\n  - ' + problems.join('\n  - ') +
+        t('\n  → ใช้ชื่อ feature ให้ตรงกับชื่อไฟล์ทุกตัวอักษร (แนะนำตัวพิมพ์เล็กทั้งหมด)',
+          '\n  → the feature name must match the file names exactly (lowercase recommended)')
+    );
   }
 }
 
@@ -554,8 +588,8 @@ function main() {
   const pos = args.filter((a) => !a.startsWith('--'));
   if (pos.length !== 4) {
     fail(
-      'ต้องระบุ 4 ค่า: <Project> <AccessFlow> <Module> <feature>\n' +
-        '  ตัวอย่าง: node scripts/setup-5.mjs Nebula-Spa No-Auth Bookings bookings'
+      t('ต้องระบุ 4 ค่า: <Project> <AccessFlow> <Module> <feature>', '4 values required: <Project> <AccessFlow> <Module> <feature>') +
+        t('\n  ตัวอย่าง: ', '\n  example: ') + 'node scripts/setup-5.mjs Nebula-Spa No-Auth Bookings bookings'
     );
   }
   const [project, access, moduleName, feature] = pos;
@@ -574,29 +608,30 @@ function main() {
   checkSources([flowsFile, locFile, csvFile]);
   const otherDir = caseMismatch(outDir);
   if (fs.existsSync(outDir) || otherDir) {
-    fail(`โฟลเดอร์ ${rel(otherDir ? path.join(moduleDir, otherDir) : outDir)} มีอยู่แล้ว → ถ้าจะอัปเดต TC ให้ใช้ Setup 7`);
+    const shown = rel(otherDir ? path.join(moduleDir, otherDir) : outDir);
+    fail(t(`โฟลเดอร์ ${shown} มีอยู่แล้ว → ถ้าจะอัปเดต TC ให้ใช้ Setup 7`, `${shown} already exists → use Setup 7 to update test cases`));
   }
 
   const warnings = [];
   const configFile = path.join(accessDir, 'project.config.json');
   if (!fs.existsSync(configFile)) {
-    warnings.push(`ไม่พบ ${rel(configFile)} (runner จะใช้ authType = none)`);
+    warnings.push(t(`ไม่พบ ${rel(configFile)} (runner จะใช้ authType = none)`, `${rel(configFile)} not found (runner defaults to authType = none)`));
   } else {
     try {
       const auth = JSON.parse(readText(configFile)).authType;
       if (!VALID_AUTH.includes(auth)) {
-        warnings.push(`${rel(configFile)}: authType = ${JSON.stringify(auth)} ไม่ถูกต้อง ต้องเป็น ${VALID_AUTH.join(' / ')}`);
+        warnings.push(t(`${rel(configFile)}: authType = ${JSON.stringify(auth)} ไม่ถูกต้อง ต้องเป็น ${VALID_AUTH.join(' / ')}`, `${rel(configFile)}: authType = ${JSON.stringify(auth)} is invalid — must be ${VALID_AUTH.join(' / ')}`));
       }
     } catch (e) {
       if (e instanceof SetupError) throw e;
-      warnings.push(`${rel(configFile)} อ่าน JSON ไม่ได้`);
+      warnings.push(t(`${rel(configFile)} อ่าน JSON ไม่ได้`, `${rel(configFile)} is not valid JSON`));
     }
   }
 
   const flows = readFlows(flowsFile);
   const locators = readLocators(locFile, `${c}Locators`);
   const cases = readScenarios(csvFile, locators);
-  if (!flows.gotoUrl) warnings.push('SETUP ไม่มี page.goto แบบ URL เต็ม → defaultVerify จะไม่ตรวจ URL');
+  if (!flows.gotoUrl) warnings.push(t('SETUP ไม่มี page.goto แบบ URL เต็ม → defaultVerify จะไม่ตรวจ URL', 'SETUP has no page.goto with a full URL → defaultVerify will not check the URL'));
 
   const files = {
     [`${feature}.types.ts`]: genTypes(P),
@@ -614,10 +649,13 @@ function main() {
 
   const nParam = locators.filter((l) => l.parametric).length;
   const count = (arr) => trimBlankEdges(arr).filter((l) => l.trim() !== '').length;
-  console.log(`✅ Setup 5 ${dryRun ? '(dry-run — ไม่ได้เขียนไฟล์) ' : ''}สำเร็จ: ${rel(outDir)}/`);
-  console.log(`   locator: ${locators.length} ช่อง (ปุ่มเลือกชื่อ ${nParam}, อื่นๆ ${locators.length - nParam})`);
-  console.log(`   test case: ${cases.length} (${cases.map((x) => x.id).join(', ')})`);
-  console.log(`   flow: SETUP ${count(flows.setup)} บรรทัด, ก่อน DATA ${count(flows.pre)}, หลัง DATA ${count(flows.post)}`);
+  const dry = dryRun ? t('(dry-run — ไม่ได้เขียนไฟล์) ', '(dry-run — nothing written) ') : '';
+  console.log(t(`✅ Setup 5 ${dry}สำเร็จ: ${rel(outDir)}/`, `✅ Setup 5 ${dry}done: ${rel(outDir)}/`));
+  console.log(t(`   locator: ${locators.length} ช่อง (ปุ่มเลือกชื่อ ${nParam}, อื่นๆ ${locators.length - nParam})`,
+    `   locators: ${locators.length} (buttons chosen by name: ${nParam}, other: ${locators.length - nParam})`));
+  console.log(t(`   test case: ${cases.length} (${cases.map((x) => x.id).join(', ')})`, `   test cases: ${cases.length} (${cases.map((x) => x.id).join(', ')})`));
+  console.log(t(`   flow: SETUP ${count(flows.setup)} บรรทัด, ก่อน DATA ${count(flows.pre)}, หลัง DATA ${count(flows.post)}`,
+    `   flow lines: SETUP ${count(flows.setup)}, before DATA ${count(flows.pre)}, after DATA ${count(flows.post)}`));
   for (const name of Object.keys(files)) console.log(`   - ${name}`);
   for (const w of warnings) console.log(`⚠️  ${w}`);
   printRunHint(outDir, accessDir);
@@ -636,10 +674,12 @@ function readAuthType(accessDir) {
 function printRunHint(outDir, accessDir) {
   const auth = readAuthType(accessDir);
   if (auth === 'none') {
-    console.log(`▶  รันเทส: npx playwright test ${rel(outDir)}`);
+    console.log(t(`▶  รันเทส: npx playwright test ${rel(outDir)}`, `▶  run tests: npx playwright test ${rel(outDir)}`));
   } else {
-    console.log(`▶  รันเทส: Test-Local\\run-local.bat → เลือก Project / Access Flow / Module`);
-    console.log(`   (authType = ${auth} ต้องรันผ่าน run-local เพื่อโหลด session login — npx ตรงๆ จะไม่ได้ login)`);
+    console.log(t(`▶  รันเทส: Test-Local\\run-local.bat → เลือก Project / Access Flow / Module`,
+      `▶  run tests: Test-Local\\run-local.bat → pick Project / Access Flow / Module`));
+    console.log(t(`   (authType = ${auth} ต้องรันผ่าน run-local เพื่อโหลด session login — npx ตรงๆ จะไม่ได้ login)`,
+      `   (authType = ${auth} must run through run-local to load the login session — plain npx will not be logged in)`));
   }
 }
 
@@ -647,12 +687,12 @@ function updateData({ feature, P, c, locFile, csvFile, outDir, dryRun, accessDir
   const helperFile = path.join(outDir, `${feature}.helper.ts`);
   const dataFile = path.join(outDir, `${feature}.data.ts`);
   if (!fs.existsSync(outDir)) {
-    fail(`ยังไม่มีโฟลเดอร์ ${rel(outDir)} → feature ใหม่ต้องใช้ Setup 5`);
+    fail(t(`ยังไม่มีโฟลเดอร์ ${rel(outDir)} → feature ใหม่ต้องใช้ Setup 5`, `${rel(outDir)} does not exist → use Setup 5 for a new feature`));
   }
   checkSources([locFile, csvFile, helperFile]);
 
   const actions = [...readText(helperFile).matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)].map((m) => m[1]);
-  if (actions.length === 0) fail(`${rel(helperFile)} ไม่มี action case ใน switch (ไฟล์อาจถูกแก้ผิด)`);
+  if (actions.length === 0) fail(t(`${rel(helperFile)} ไม่มี action case ใน switch (ไฟล์อาจถูกแก้ผิด)`, `${rel(helperFile)} has no action cases in its switch (file may be edited incorrectly)`));
 
   const locators = readLocators(locFile, `${c}Locators`);
   // checkKinds=false: Setup 6 may have taught this helper new locator types
@@ -667,12 +707,15 @@ function updateData({ feature, P, c, locFile, csvFile, outDir, dryRun, accessDir
 
   if (!dryRun) fs.writeFileSync(dataFile, genData(P, c, feature, cases), { encoding: 'utf8' });
 
-  console.log(`✅ Setup 7 ${dryRun ? '(dry-run — ไม่ได้เขียนไฟล์) ' : ''}สำเร็จ: ${rel(dataFile)}`);
-  console.log(`   locator: ${locators.length} ช่อง · action ที่ helper รองรับ: ${actions.map((a) => '|' + a).join(', ')}`);
-  console.log(`   test case ทั้งหมด: ${cases.length}`);
-  console.log(`   เพิ่มใหม่: ${added.length ? added.join(', ') : '-'}`);
-  console.log(`   หายไปจากเดิม: ${removed.length ? removed.join(', ') : '-'}`);
-  console.log('   ไม่ได้แตะ: spec.ts, helper.ts, types.ts');
+  const dry = dryRun ? t('(dry-run — ไม่ได้เขียนไฟล์) ', '(dry-run — nothing written) ') : '';
+  const acts = actions.map((a) => '|' + a).join(', ');
+  const list = (a) => (a.length ? a.join(', ') : '-');
+  console.log(t(`✅ Setup 7 ${dry}สำเร็จ: ${rel(dataFile)}`, `✅ Setup 7 ${dry}done: ${rel(dataFile)}`));
+  console.log(t(`   locator: ${locators.length} ช่อง · action ที่ helper รองรับ: ${acts}`, `   locators: ${locators.length} · actions supported by helper: ${acts}`));
+  console.log(t(`   test case ทั้งหมด: ${cases.length}`, `   test cases: ${cases.length}`));
+  console.log(t(`   เพิ่มใหม่: ${list(added)}`, `   added: ${list(added)}`));
+  console.log(t(`   หายไปจากเดิม: ${list(removed)}`, `   removed: ${list(removed)}`));
+  console.log(t('   ไม่ได้แตะ: spec.ts, helper.ts, types.ts', '   untouched: spec.ts, helper.ts, types.ts'));
   printRunHint(outDir, accessDir);
 }
 
@@ -680,7 +723,7 @@ try {
   main();
 } catch (e) {
   if (e instanceof SetupError) {
-    console.error(`❌ ${LABEL} หยุดทำงาน — ไม่มีไฟล์ใดถูกเขียนหรือแก้\n${e.message}`);
+    console.error(t(`❌ ${LABEL} หยุดทำงาน — ไม่มีไฟล์ใดถูกเขียนหรือแก้`, `❌ ${LABEL} stopped — no files were written or changed`) + `\n${e.message}`);
     process.exit(1);
   }
   throw e;
