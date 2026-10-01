@@ -127,7 +127,17 @@ profile ของเบราว์เซอร์ถูกเก็บไว้
 
 ### `form`
 
-รัน **`Authen/Form-Login/setup-form-auth.bat`** จะ login หนึ่งครั้งแล้วเก็บ session ไว้ที่ `Test-Local/<Project>/<AccessFlow>/_login/session-storage.json` (ไม่ขึ้น git)
+access flow แบบ `form` แต่ละตัวมีสคริปต์ login ของตัวเอง: **`Test-Local/<Project>/<AccessFlow>/_login/login.setup.ts`** Setup 1 สร้างให้จาก template (`Authen/Form-Login/login.setup.template.ts`)
+
+1. เปิด `_login/login.setup.ts` ลบบรรทัด `throw new Error(...)` ด้านบนออก แล้วแก้ TODO 4 จุด:
+   1. URL ของหน้า login
+   2. ช่องกรอกและปุ่มยืนยันของฟอร์ม login — อัดด้วย `run-codegen.bat` → **Record login and test flow** เอาแค่ locator มาใช้ แล้วใส่ `username` / `password` เป็นค่า
+   3. การรอที่พิสูจน์ว่า login สำเร็จแล้ว (URL หรือ element ที่เห็นหลัง login เท่านั้น)
+   4. แอปเก็บ session แบบไหน: `saveStorageState` สำหรับ cookies / localStorage (แอปส่วนใหญ่), `saveSessionStorage` สำหรับแอปที่เก็บใน sessionStorage
+2. ดับเบิลคลิก **`Authen/Form-Login/setup-form-auth.bat`** → เลือก access flow → กรอก username และรหัสผ่าน (รหัสผ่านถูกซ่อน และไม่ถูกบันทึกลงไฟล์)
+3. session ถูกเก็บที่ `_login/session-storage.json` (ไม่ขึ้น git)
+
+ห้ามเขียนรหัสผ่านลงใน `login.setup.ts` ทำข้อ 2 ซ้ำเมื่อ session หมดอายุ
 
 รายละเอียด (รหัสผ่าน, อายุ session): [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md)
 
@@ -237,7 +247,18 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
 **เรื่องขั้นตอน login ใน SETUP**
 
 - `microsoft`: runner ใช้ profile Microsoft ที่บันทึกไว้ เก็บไว้เฉพาะขั้นตอน*ภายในแอป*หลัง sign-in (เช่น เลือกสาขา)
-- `form`: runner โหลด session ที่บันทึกไว้ แอปจึงมักจะ login อยู่แล้ว ให้เริ่ม SETUP จากหน้าแรกหลัง login และลบขั้นตอน login ที่อัดมาออก ควรลองกับแอปของคุณหนึ่งครั้ง เพราะบางแอปทำงานต่างกัน
+- `form`: runner โหลด session ที่บันทึกไว้ **ฟอร์ม login จึงไม่ขึ้นมา** เก็บทุกขั้นตอนไว้ **ยกเว้นขั้นตอนในหน้าฟอร์ม login** (ช่อง email, รหัสผ่าน, ปุ่มยืนยันของฟอร์ม) ส่วนปุ่ม "Login" บนหน้าเว็บที่กดเพื่อไปหน้าฟอร์ม ให้เก็บไว้ เพราะเมื่อมี session แล้ว กดปุ่มนี้จะเข้าแอปเลย
+
+  ```typescript
+  // === SETUP ===
+  await page.goto('https://app.example.com/');
+  await page.getByRole('button', { name: 'Login' }).click();          // เก็บ — ปุ่มบนหน้าเว็บ
+  // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // ลบ — อยู่ในฟอร์ม login
+  // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // ลบ — อยู่ในฟอร์ม login
+  // await page.getByRole('button', { name: 'Sign in' }).click();     // ลบ — อยู่ในฟอร์ม login
+  ```
+
+  ถ้า session หมดอายุ เทสจะไปหยุดที่ฟอร์ม login ให้รัน `setup-form-auth.bat` ใหม่
 
 ### ตัวอย่าง — ปุ่มพิมพ์ (หลัง DATA ว่าง)
 

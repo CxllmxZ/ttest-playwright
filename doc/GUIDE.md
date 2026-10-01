@@ -1,91 +1,91 @@
-# ttest-playwright — คู่มือการใช้งาน
+# ttest-playwright — User Guide
 
-คู่มือนี้พาทำตั้งแต่ repo เปล่าจนรันเทสได้ ภาพรวมสั้นๆ อยู่ใน [README](../README.md) ส่วนกฎทั้งหมดแบบละเอียดอยู่ใน [`AGENTS.md`](../AGENTS.md)
+This guide walks through the full workflow, from an empty repository to running tests. For a short overview see the [README](../README.md). The complete rule reference is [`AGENTS.md`](../AGENTS.md).
 
-English: [GUIDE.md](GUIDE.md)
+ภาษาไทย: [GUIDE.th.md](GUIDE.th.md)
 
 ---
 
-## สรุปสั้น
+## Quick reference
 
-| ต้องการ | ทำ | วิธี |
+| I want to… | Do | How |
 |---|---|---|
-| เริ่มโปรเจค / access flow / module ใหม่ | **Setup 1** | ⚡ Task |
-| เตรียม login (Microsoft / form) | ตั้งค่า Login | สคริปต์ `.bat` |
-| อัดขั้นตอนการใช้งาน | Codegen | `Test-Local/run-codegen.bat` |
-| จัด locator ที่อัดได้ให้เป็นรายการ | **Setup 3** | 💬 Prompt |
-| เขียน test case | **Setup 4** | 💬 Prompt |
-| สร้างไฟล์เทส | **Setup 5** | ⚡ Task |
-| รันเทส | Runner | `Test-Local/run-local.bat` |
-| เพิ่ม test case | **Setup 4** → **Setup 7** | 💬 → ⚡ |
-| แก้ / ลบ test case | แก้ CSV → **Setup 7** | ⚡ Task |
-| ใช้ action หรือช่องกรอกแบบใหม่ | **Setup 6** → **Setup 7** | 💬 → ⚡ |
+| Start a new project / access flow / module | **Setup 1** | ⚡ Task |
+| Prepare login (Microsoft / form) | Login setup | `.bat` script |
+| Record a flow | Codegen | `Test-Local/run-codegen.bat` |
+| Turn recorded locators into a locator list | **Setup 3** | 💬 Prompt |
+| Write test cases | **Setup 4** | 💬 Prompt |
+| Generate the test files | **Setup 5** | ⚡ Task |
+| Run tests | Runner | `Test-Local/run-local.bat` |
+| Add test cases | **Setup 4** → **Setup 7** | 💬 → ⚡ |
+| Edit / delete test cases | edit CSV → **Setup 7** | ⚡ Task |
+| Use a new action or field type | **Setup 6** → **Setup 7** | 💬 → ⚡ |
 
-- **⚡ Task:** VS Code → `Ctrl+Shift+P` → **Run Task** → เลือก Setup → กรอกค่าในกล่อง
-- **💬 Prompt:** ก๊อป template จาก[ภาคผนวก ก](#ภาคผนวก-ก--template-ของ-prompt) ไปแปะใน AI (เช่น GitHub Copilot โหมด **Agent**)
+- **⚡ Task:** VS Code → `Ctrl+Shift+P` → **Run Task** → pick the setup → fill in the boxes.
+- **💬 Prompt:** paste the template from [Appendix A](#appendix-a--prompt-templates) into your AI agent (e.g. GitHub Copilot in **Agent mode**).
 
-ไม่มี Setup 2 แล้ว (รวมเข้ากับ Setup 1)
+Setup 2 no longer exists (merged into Setup 1).
 
 ---
 
-## สารบัญ
+## Contents
 
-0. [ติดตั้ง](#0-ติดตั้ง)
-1. [Setup 1 — สร้างโปรเจค](#1-setup-1--สร้างโปรเจค)
-2. [ตั้งค่า Login](#2-ตั้งค่า-login)
-3. [อัดขั้นตอนด้วย codegen](#3-อัดขั้นตอนด้วย-codegen)
-4. [แบ่งโค้ดที่อัดได้ลง `_flows` และ `_locators`](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)
+0. [Install](#0-install)
+1. [Setup 1 — Create the project](#1-setup-1--create-the-project)
+2. [Login setup](#2-login-setup)
+3. [Record the flow with codegen](#3-record-the-flow-with-codegen)
+4. [Split the recording into `_flows` and `_locators`](#4-split-the-recording-into-_flows-and-_locators)
 5. [Setup 3 — Locators](#5-setup-3--locators)
 6. [Setup 4 — Scenarios](#6-setup-4--scenarios)
-7. [Setup 5 — สร้าง feature](#7-setup-5--สร้าง-feature)
-8. [รันเทส](#8-รันเทส)
-9. [เพิ่มหรือแก้ test case](#9-เพิ่มหรือแก้-test-case)
-10. [action หรือช่องกรอกแบบใหม่ (Setup 6)](#10-action-หรือช่องกรอกแบบใหม่-setup-6)
-11. [แก้ปัญหา](#11-แก้ปัญหา)
-- [ภาคผนวก ก — Template ของ Prompt](#ภาคผนวก-ก--template-ของ-prompt)
-- [ภาคผนวก ข — ภาษาของสคริปต์](#ภาคผนวก-ข--ภาษาของสคริปต์)
+7. [Setup 5 — Generate the feature](#7-setup-5--generate-the-feature)
+8. [Run the tests](#8-run-the-tests)
+9. [Add or change test cases](#9-add-or-change-test-cases)
+10. [New action or field type (Setup 6)](#10-new-action-or-field-type-setup-6)
+11. [Troubleshooting](#11-troubleshooting)
+- [Appendix A — Prompt templates](#appendix-a--prompt-templates)
+- [Appendix B — Script language](#appendix-b--script-language)
 
 ---
 
-## 0. ติดตั้ง
+## 0. Install
 
-ต้องมี: Node.js 18 ขึ้นไป, VS Code, Windows (สำหรับไฟล์ `.bat`)
+Requirements: Node.js 18+, VS Code, Windows (for the `.bat` runners).
 
-บน Windows ดับเบิลคลิก **`Test-Local/setup.bat`** จะเช็ค Node.js และติดตั้ง pnpm, Playwright, Chromium, TypeScript ให้ถ้ายังไม่มี
+On Windows, double-click **`Test-Local/setup.bat`**. It checks Node.js and installs pnpm, Playwright, Chromium and TypeScript if they are missing.
 
-หรือติดตั้งเอง:
+Manual alternative:
 
 ```bash
 pnpm install
 pnpm exec playwright install chromium
 ```
 
-เปิด **โฟลเดอร์ของ repo โดยตรง** ใน VS Code (File → Open Folder → `ttest-playwright`) ถ้าเปิดโฟลเดอร์ที่อยู่สูงกว่านั้น Task จะไม่ขึ้นในเมนู
+Open the **repository folder itself** in VS Code (File → Open Folder → `ttest-playwright`). If you open a parent folder, the VS Code Tasks will not appear.
 
 ---
 
-## 1. Setup 1 — สร้างโปรเจค
+## 1. Setup 1 — Create the project
 
-สร้างโฟลเดอร์และการตั้งค่า login สำหรับ 1 module
+Creates the folders and the login configuration for one module.
 
-**รัน:** `Ctrl+Shift+P` → **Run Task** → **Setup 1 — Create-Project**
+**Run:** `Ctrl+Shift+P` → **Run Task** → **Setup 1 — Create-Project**
 
-| ช่อง | ความหมาย | ตัวอย่าง |
+| Box | Meaning | Example |
 |---|---|---|
-| Project | แอปที่จะเทส | `Nebula-Spa` |
-| AccessFlow | ช่องทางเข้าแอป (login แบบเดียว) | `No-Auth` |
-| Module | ส่วนหนึ่งของแอป | `Bookings` |
-| AuthType | วิธี login ของ access flow นี้ | `none` |
+| Project | the application under test | `Nebula-Spa` |
+| AccessFlow | a way of entering the app (one login type) | `No-Auth` |
+| Module | an area of the app | `Bookings` |
+| AuthType | how this access flow logs in | `none` |
 
 **AuthType:**
 
-| ค่า | ใช้เมื่อ |
+| Value | Use when |
 |---|---|
-| `none` | ไม่ต้อง login |
-| `microsoft` | login ด้วยบัญชี Microsoft / Azure AD |
-| `form` | login ด้วยฟอร์ม email + รหัสผ่านของแอปเอง |
+| `none` | no login needed |
+| `microsoft` | Microsoft / Azure AD single sign-on |
+| `form` | the app's own email + password form |
 
-**ผลที่ได้:**
+**Result:**
 
 ```
 Test-Local/Nebula-Spa/No-Auth/
@@ -96,97 +96,107 @@ Test-Local/Nebula-Spa/No-Auth/
     └── _scenarios/
 ```
 
-**ควรรู้**
+**Good to know**
 
-- ใช้ Task เดิมเพื่อเพิ่ม module หรือ access flow ใหม่ได้ โฟลเดอร์ที่มีอยู่แล้วจะถูกใช้ต่อ ไม่ถูกเขียนทับ
-- 1 access flow ใช้ AuthType ได้แบบเดียว ถ้าจะใช้ login แบบอื่นให้ตั้งชื่อ AccessFlow ใหม่ (เช่น `Admin-Login`)
-- ชื่อห้ามมีช่องว่าง ใช้ `-` แทน
-- ชื่อที่ต่างจากโฟลเดอร์เดิมแค่ตัวพิมพ์เล็ก-ใหญ่ (`nebula-spa` กับ `Nebula-Spa`) จะถูกปฏิเสธ เพราะ Windows มองว่าเป็นโฟลเดอร์เดียวกัน แต่ git และ Linux มองว่าเป็นคนละโฟลเดอร์
+- Use the same task to add another module or access flow. Existing folders are reused, never overwritten.
+- One access flow has exactly one AuthType. For a different login type, use a new AccessFlow name (e.g. `Admin-Login`).
+- Names cannot contain spaces — use `-`.
+- A name that differs from an existing folder only by letter case (`nebula-spa` vs `Nebula-Spa`) is rejected. Windows treats them as the same folder; git and Linux do not.
 
 ---
 
-## 2. ตั้งค่า Login
+## 2. Login setup
 
-ทำ**ก่อนอัด codegen** เพราะตัวอัดจะเปิดแอปด้วย login ที่บันทึกไว้
+Do this **before recording**, because the recorder opens the app with the saved login.
 
 ### `none`
 
-ไม่ต้องทำอะไร
+Nothing to do.
 
 ### `microsoft`
 
-1. ดับเบิลคลิก **`Authen/Microsoft/setup-microsoft-auth.bat`**
-2. ใส่ URL ของแอป
-3. login ด้วย Microsoft (รวม MFA) ในเบราว์เซอร์ที่เปิดขึ้นมา
-4. รอจนแอปโหลดเสร็จ
-5. กลับไปที่หน้าต่างสคริปต์ แล้วกด **Enter**
+1. Double-click **`Authen/Microsoft/setup-microsoft-auth.bat`**
+2. Enter the application URL
+3. Log in with Microsoft (including MFA) in the browser that opens
+4. Wait until the application has fully loaded
+5. Go back to the script window and press **Enter**
 
-profile ของเบราว์เซอร์ถูกเก็บไว้ที่ `Authen/Microsoft/profile/` (ไม่ขึ้น git) ทำซ้ำเมื่อ session หมดอายุ
+The browser profile is saved in `Authen/Microsoft/profile/` (git-ignored). Repeat these steps when the session expires.
 
-ถ้าไม่ทำขั้นนี้ ตัวอัดจะหยุดและขึ้นว่า *"Microsoft profile is not ready"*
+Without this step, the recorder stops with *"Microsoft profile is not ready"*.
 
 ### `form`
 
-รัน **`Authen/Form-Login/setup-form-auth.bat`** จะ login หนึ่งครั้งแล้วเก็บ session ไว้ที่ `Test-Local/<Project>/<AccessFlow>/_login/session-storage.json` (ไม่ขึ้น git)
+Each `form` access flow has its own login script: **`Test-Local/<Project>/<AccessFlow>/_login/login.setup.ts`**. Setup 1 creates it from a template (`Authen/Form-Login/login.setup.template.ts`).
 
-รายละเอียด (รหัสผ่าน, อายุ session): [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md)
+1. Open `_login/login.setup.ts`, delete the `throw new Error(...)` line at the top, and fill in the four TODOs:
+   1. the login page URL
+   2. the login form's fields and submit button — record them with `run-codegen.bat` → **Record login and test flow**, keep the locators, and use `username` / `password` as the values
+   3. a wait that proves you are logged in (a URL or an element)
+   4. how the app keeps the session: `saveStorageState` for cookies / localStorage (most apps), `saveSessionStorage` for sessionStorage-based apps
+2. Double-click **`Authen/Form-Login/setup-form-auth.bat`** → pick the access flow → enter username and password (the password is hidden, and neither is written to disk)
+3. The session is saved to `_login/session-storage.json` (git-ignored)
 
----
+Never write credentials into `login.setup.ts`. Repeat step 2 when the session expires.
 
-## 3. อัดขั้นตอนด้วย codegen
-
-1. ดับเบิลคลิก **`Test-Local/run-codegen.bat`**
-2. เลือก **Project** → **Access Flow**
-3. เฉพาะ `form` — เลือกโหมด:
-   - **Record login and test flow** — เบราว์เซอร์ใหม่ที่ยังไม่ login อัดทุกขั้นรวมถึงการ login
-   - **Open authenticated browser / Pick locators** — login ไว้แล้ว ใช้เลือก locator ทีละตัว (ไม่ได้อัดโค้ดทั้งหมด)
-4. ใส่ URL หน้าเริ่มต้น
-5. ในเบราว์เซอร์ ทำ **test case ปกติหนึ่งรอบจนจบ** เช่น จองนวดหนึ่งครั้งตั้งแต่ต้นจนจบ
-6. ก๊อปโค้ดจากหน้าต่าง **Playwright Inspector**
-
-ตัวอัดไม่ได้บันทึกไฟล์ให้ ต้องเอาโค้ดไปวางเองในขั้นถัดไป
-
-**อัดแค่ test case เดียว** test case อื่นมาจาก CSV ทีหลัง
+Details (credentials, session lifetime): [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md).
 
 ---
 
-## 4. แบ่งโค้ดที่อัดได้ลง `_flows` และ `_locators`
+## 3. Record the flow with codegen
 
-ขั้นนี้สำคัญที่สุด โค้ดที่อัดได้ชุดเดียว แบ่งเป็น 2 ไฟล์ที่**ชื่อเหมือนกัน** เรียกว่า *ชื่อ feature*:
+1. Double-click **`Test-Local/run-codegen.bat`**
+2. Pick **Project** → **Access Flow**
+3. `form` only — pick a mode:
+   - **Record login and test flow** — clean browser, records everything including the login
+   - **Open authenticated browser / Pick locators** — already logged in, for picking single locators (does not record a full script)
+4. Enter the URL to start from
+5. In the browser, perform **one complete, typical test case** — for example, book one massage from start to finish
+6. Copy the generated code from the **Playwright Inspector** window
+
+The recorder does not save files. You paste the code in the next step.
+
+**Record one test case only.** The other test cases come from the CSV later.
+
+---
+
+## 4. Split the recording into `_flows` and `_locators`
+
+This is the most important step. One recording becomes two files with the **same name** — the *feature name*:
 
 ```
 Bookings/_flows/bookings.ts
 Bookings/_locators/bookings.ts
 ```
 
-ใช้ตัวพิมพ์เล็กทั้งหมดสำหรับชื่อ feature และ `_flows`, `_locators`, `_scenarios` กับโฟลเดอร์ที่สร้างขึ้น ต้องใช้ชื่อเดียวกันทุกตัวอักษร
+Use lowercase for the feature name. `_flows`, `_locators`, `_scenarios` and the generated folder must all use exactly the same name.
 
-### กฎข้อเดียว
+### The one rule
 
-ดูทีละบรรทัดที่อัดได้ แล้วถามว่า: **ขั้นนี้เปลี่ยนไปตามแต่ละ test case ไหม?**
+For each recorded line, ask: **does this step change from one test case to another?**
 
-| คำตอบ | ไปอยู่ที่ |
+| Answer | Goes to |
 |---|---|
-| **ไม่** — ทุก test case ทำเหมือนกัน | `_flows` |
-| **ใช่** — แต่ละ test case ใช้ค่าหรือปุ่มต่างกัน | `_locators` (และลบออกจาก `_flows`) |
+| **No** — every test case does it the same way | `_flows` |
+| **Yes** — each test case uses a different value or button | `_locators` (and removed from `_flows`) |
 
-### ตัวอย่าง — การจอง
+### Example — booking
 
-โค้ดที่อัดได้:
+Recorded:
 
 ```typescript
 await page.goto('http://localhost:8787/');
-await page.locator('#top').getByRole('link', { name: 'จองเลย →' }).click();
-await page.getByRole('button', { name: 'นวดไทย ฿ 350 60 นาที' }).click();       // เปลี่ยนตาม TC
-await page.getByRole('button', { name: 'วันพฤหัสบดีที่ 1 ตุลาคม' }).click();     // เปลี่ยนตาม TC
-await page.getByRole('button', { name: '11:00' }).click();                       // เปลี่ยนตาม TC
-await page.getByRole('textbox', { name: 'ชื่อ-นามสกุล' }).fill('test');          // เปลี่ยนตาม TC
-await page.getByRole('textbox', { name: 'เบอร์โทร' }).fill('0812345678');        // เปลี่ยนตาม TC
-await page.getByRole('button', { name: 'ยืนยันการจอง →' }).click();
-await page.getByRole('link', { name: 'กลับหน้าแรก' }).click();
+await page.locator('#top').getByRole('link', { name: 'Book now →' }).click();
+await page.getByRole('button', { name: 'Thai massage ฿ 350 60 min' }).click();   // varies
+await page.getByRole('button', { name: 'Thursday 1 October' }).click();         // varies
+await page.getByRole('button', { name: '11:00' }).click();                        // varies
+await page.getByRole('textbox', { name: 'Full name' }).fill('test');              // varies
+await page.getByRole('textbox', { name: 'Phone' }).fill('0812345678');            // varies
+await page.getByRole('button', { name: 'Confirm booking →' }).click();
+await page.getByRole('link', { name: 'Back to home' }).click();
 ```
 
-**`_flows/bookings.ts`** — ขั้นที่ไม่เปลี่ยน แบ่งด้วย marker 3 จุด:
+**`_flows/bookings.ts`** — the unchanged steps, split by three markers:
 
 ```typescript
 import { test, expect } from '@playwright/test';
@@ -196,15 +206,15 @@ test('test', async ({ page }) => {
   await page.goto('http://localhost:8787/');
 
   // === PER TEST ===
-  await page.locator('#top').getByRole('link', { name: 'จองเลย →' }).click();
+  await page.locator('#top').getByRole('link', { name: 'Book now →' }).click();
 
   // === DATA ===
-  await page.getByRole('button', { name: 'ยืนยันการจอง →' }).click();
-  await page.getByRole('link', { name: 'กลับหน้าแรก' }).click();
+  await page.getByRole('button', { name: 'Confirm booking →' }).click();
+  await page.getByRole('link', { name: 'Back to home' }).click();
 });
 ```
 
-**`_locators/bookings.ts`** — ขั้นที่เปลี่ยน เรียงตามลำดับ ไม่มี action ต่อท้าย:
+**`_locators/bookings.ts`** — the varying steps, in order, without the action:
 
 ```typescript
 import type { Locator, Page } from '@playwright/test';
@@ -213,42 +223,53 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
   (page, value) => page.getByRole('button', { name: value }),
   (page, value) => page.getByRole('button', { name: value }),
   (page, value) => page.getByRole('button', { name: value }),
-  (page) => page.getByRole('textbox', { name: 'ชื่อ-นามสกุล' }),
-  (page) => page.getByRole('textbox', { name: 'เบอร์โทร' }),
+  (page) => page.getByRole('textbox', { name: 'Full name' }),
+  (page) => page.getByRole('textbox', { name: 'Phone' }),
 ];
 ```
 
-จะวางบรรทัด locator ดิบๆ ลงใน `_locators` แล้วให้ **Setup 3** แปลงเป็นรูปแบบนี้ก็ได้
+You can paste the raw locator lines into `_locators` and let **Setup 3** convert them to this format.
 
-### Marker 3 จุด
+### The three markers
 
-| Marker | ทำงานตอน | ใส่อะไร |
+| Marker | Runs | Put here |
 |---|---|---|
-| `// === SETUP ===` | **ก่อนทุก** test case | เปิดหน้าเริ่มต้น, ขั้นตอน login ภายในแอป |
-| `// === PER TEST ===` | ตอนเริ่มแต่ละ test case | ขั้นก่อนใส่ข้อมูลเทส (เปิดฟอร์ม, ล้างตัวกรอง) |
-| `// === DATA ===` | จุดที่ข้อมูลเทสถูกใส่ | ขั้น**หลัง**ใส่ข้อมูล (กดยืนยัน, กดบันทึก) อยู่ใต้ marker นี้ |
+| `// === SETUP ===` | once **before each** test case | open the start page; app-level login steps |
+| `// === PER TEST ===` | at the start of each test case | steps before the test data (open a form, clear filters) |
+| `// === DATA ===` | the test data is inserted here | steps **after** the data (submit, confirm) go below this marker |
 
-- แต่ละ marker ต้องมี **ครั้งเดียว** และเรียงตามลำดับนี้
-- `test('test', async ({ page }) => { … })` ที่ codegen ใส่มา ปล่อยไว้ได้ ระบบตัดออกให้เอง
-- ใช้ **URL เต็ม** ใน `page.goto(...)` ของ SETUP ระบบใช้ตรวจว่าเทสยังอยู่ในแอป
-- ถ้าหน้าเว็บมีหน้าจอ loading ต้องใส่ `await waitForLoading(page);` เองตรงจุดที่ต้องรอ ระบบไม่ใส่ให้อัตโนมัติ
-- **ห้ามใส่รหัสผ่านใน `_flows`** ไฟล์นี้ขึ้น git และถูกก๊อปไปอยู่ใน spec
+- Each marker must appear **exactly once**, in this order.
+- The `test('test', async ({ page }) => { … })` wrapper from codegen may stay; it is removed automatically.
+- Use a **full URL** in SETUP's `page.goto(...)`. It is used to verify the test stayed in the app.
+- If the page shows a loading overlay, add `await waitForLoading(page);` yourself where needed. It is never added automatically.
+- **Never put passwords in `_flows`.** It is committed to git and copied into the spec.
 
-**เรื่องขั้นตอน login ใน SETUP**
+**About login steps in SETUP**
 
-- `microsoft`: runner ใช้ profile Microsoft ที่บันทึกไว้ เก็บไว้เฉพาะขั้นตอน*ภายในแอป*หลัง sign-in (เช่น เลือกสาขา)
-- `form`: runner โหลด session ที่บันทึกไว้ แอปจึงมักจะ login อยู่แล้ว ให้เริ่ม SETUP จากหน้าแรกหลัง login และลบขั้นตอน login ที่อัดมาออก ควรลองกับแอปของคุณหนึ่งครั้ง เพราะบางแอปทำงานต่างกัน
+- `microsoft`: the runner uses the saved Microsoft profile. Keep only the steps *inside* the app after sign-in (e.g. choosing a branch).
+- `form`: the runner loads the saved session, so the **login form never appears**. Keep every step **except the ones on the login form itself** (email, password, the form's submit button). A "Login" button on the site that leads to the form stays — with a saved session it takes you straight into the app.
 
-### ตัวอย่าง — ปุ่มพิมพ์ (หลัง DATA ว่าง)
+  ```typescript
+  // === SETUP ===
+  await page.goto('https://app.example.com/');
+  await page.getByRole('button', { name: 'Login' }).click();          // keep — button on the site
+  // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // remove — login form
+  // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // remove — login form
+  // await page.getByRole('button', { name: 'Sign in' }).click();     // remove — login form
+  ```
 
-แต่ละ test case กดคนละปุ่ม และไม่มีขั้นอื่นต่อ:
+  If the session expires, tests stop at the login form. Run `setup-form-auth.bat` again.
+
+### Example — print buttons (nothing after DATA)
+
+Each test case clicks a different button and nothing follows:
 
 ```typescript
   // === SETUP ===
   await page.goto('https://example.com/app/');
 
   // === PER TEST ===
-  await page.getByRole('button', { name: 'ค้นหา' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
 
   // === DATA ===
 });
@@ -262,184 +283,184 @@ export const printLocators: Array<(page: Page, value?: string) => Locator> = [
 ];
 ```
 
-ใส่ `.first()` เมื่อหน้าเว็บมีปุ่มชื่อซ้ำหลายตัว (เช่น ปุ่มเดียวกันในแต่ละแถวของตาราง) ไม่อย่างนั้นเทสจะ fail ด้วย *"strict mode violation"*
+Keep `.first()` when the page has several buttons with the same name (e.g. one per table row). Without it the test fails with *"strict mode violation"*.
 
-### ชนิดของ locator
+### Locator types
 
-| ชนิด | เขียนแบบ | ค่าใน CSV | ใช้กับ |
+| Type | Written as | CSV value | Use for |
 |---|---|---|---|
-| **Static** | `(page) => …` | ข้อความที่พิมพ์, ตัวเลือกที่เลือก หรือ `\|click` | ช่องกรอก, dropdown, ปุ่มที่กดตัวเดิมทุกครั้ง |
-| **Parametric** | `(page, value) => …` | ชื่อปุ่มที่จะกด | ปุ่มที่แต่ละ test case เลือกต่างกัน |
+| **Static** | `(page) => …` | text to type, option to pick, or `\|click` | textboxes, dropdowns, fixed buttons |
+| **Parametric** | `(page, value) => …` | the name of the button to click | a button chosen differently per test case |
 
-Parametric ต้องรับ 2 parameter พอดี และ**ห้ามมีค่า default** (`(page, value = '') =>` จะทำให้ใช้ไม่ได้)
+Parametric locators must have exactly two parameters and **no default value** (`(page, value = '') =>` breaks them).
 
-### ปุ่มที่ไม่มีชื่อ
+### Buttons without a name
 
-- **ทุก test case กดปุ่มเดียวกัน:** static ระบุตำแหน่ง — `(page) => page.locator('.toolbar').getByRole('button').nth(2)` ใน CSV ใส่ `|click`
-- **แต่ละ test case กดคนละปุ่ม:** แยกช่องละปุ่ม (CSV `|click,,` / `,|click,`) หรือ parametric แบบตัวเลข:
-  `(page, value) => page.locator('.toolbar').getByRole('button').nth(Number(value) - 1)` ใน CSV ใส่ `1`, `2`, `3`
-- `.nth()` ต้องมีตัวกรองกลุ่มก่อนเสมอ (`.toolbar`) ถ้าเขียน `page.getByRole('button').nth(2)` เฉยๆ เทสจะกดผิดปุ่มทันทีที่หน้าเว็บเปลี่ยนเลย์เอาต์
-- ถ้าเป็นแอปของคุณเอง เพิ่ม `aria-label` ให้ปุ่มดีที่สุด
+- **Same button in every test case:** static with position — `(page) => page.locator('.toolbar').getByRole('button').nth(2)`, CSV `|click`.
+- **Different button per test case:** one static slot per button (CSV `|click,,` / `,|click,`), or a numbered parametric locator:
+  `(page, value) => page.locator('.toolbar').getByRole('button').nth(Number(value) - 1)` with CSV `1`, `2`, `3`.
+- Always narrow `.nth()` to a container (`.toolbar`). A bare `page.getByRole('button').nth(2)` clicks the wrong button as soon as the page layout changes.
+- If you own the app, adding `aria-label` to the buttons is the best fix.
 
 ---
 
 ## 5. Setup 3 — Locators
 
-แปลงบรรทัด locator ดิบใน `_locators/<feature>.ts` ให้เป็นรายการที่เรียงลำดับแล้ว และตัดสินว่าปุ่มไหนเป็น parametric
+Converts raw locator lines in `_locators/<feature>.ts` into the ordered list, and decides which buttons are parametric.
 
-**รัน:** แปะ template ของ Setup 3 ([ภาคผนวก ก](#setup-3--locators))
+**Run:** paste the Setup 3 template ([Appendix A](#setup-3--locators)).
 
-**ตรวจผล:**
-- ลำดับตรงกับลำดับที่ต้องการใน CSV
-- ปุ่มที่เปลี่ยนตาม test case เป็น parametric `(page, value) =>`
-- `.first()` / `.nth()` ยังอยู่ในจุดที่จำเป็น
-- ไม่มีคอมเมนต์ในไฟล์ (ความหมายของแต่ละตำแหน่งอยู่ใน CSV)
+**Check the result:**
+- the order matches the order you want in the CSV
+- buttons that change per test case are parametric `(page, value) =>`
+- `.first()` / `.nth()` were kept where needed
+- no comments in the file (the meaning of each position lives in the CSV)
 
 ---
 
 ## 6. Setup 4 — Scenarios
 
-แปลงบรรทัดแบบ `ชื่อ scenario : ค่า` ให้เป็น `_scenarios/<feature>.csv`
+Turns lines of `scenario name : value` into `_scenarios/<feature>.csv`.
 
-**รัน:** แปะ template ของ Setup 4 ([ภาคผนวก ก](#setup-4--scenarios)) พร้อม scenario:
+**Run:** paste the Setup 4 template ([Appendix A](#setup-4--scenarios)) with your scenarios:
 
 ```
-จองนวดไทย : นวดไทย,วันพฤหัสบดีที่ 1 ตุลาคม,11:00,test,0812345678
-จองโดยไม่กรอกเบอร์ : นวดไทย,วันพฤหัสบดีที่ 1 ตุลาคม,13:00,test,
+Book Thai massage : Thai massage,Thursday 1 October,11:00,test,0812345678
+Book without phone : Thai massage,Thursday 1 October,13:00,test,
 ```
 
-### การเขียนค่า
+### Writing a value
 
-ค่าคือรายการที่คั่นด้วย comma **ค่าตัวที่ N ไปที่ locator ตัวที่ N**
+The value is a comma-separated list. **Item N goes to locator N.**
 
-| locator ในตำแหน่งนั้น | ใส่ | ตัวอย่าง |
+| Locator at that position | Write | Example |
 |---|---|---|
-| ช่องกรอก | ข้อความที่พิมพ์ | `test` |
-| dropdown | ตัวเลือก | `งานใหม่` |
-| ปุ่ม parametric | ชื่อปุ่ม (หรือส่วนที่ไม่ซ้ำ) | `นวดไทย` |
-| ปุ่มที่กดตัวเดิม | `\|click` | `\|click` |
-| test case นี้ไม่ใช้ | เว้นว่าง | `,,` |
+| textbox | text to type | `test` |
+| dropdown | option to pick | `New job` |
+| parametric button | button name (or a unique part of it) | `Thai massage` |
+| fixed button | `\|click` | `\|click` |
+| not used in this test case | nothing | `,,` |
 
-**กฎ**
+**Rules**
 
-- จำนวนค่าต้องเท่ากับจำนวน locator 5 locator = comma 4 ตัวเสมอ
-- ชื่อปุ่มถูกค้นแบบ "มีคำนี้อยู่" ดังนั้น `นวดไทย` จะเจอ `นวดไทย ฿ 350 60 นาที`
-- ใส่ comma ในค่าไม่ได้ ถ้าปุ่มชื่อ `นวดหินร้อน ฿ 1,200` ให้ใส่ `นวดหินร้อน`
-- `ชื่อ : ค่า` ถูกแยกที่ ` : ` **ตัวแรก** (มีเว้นวรรคหน้า-หลัง) เวลา `11:00` จึงไม่ถูกตัด
+- The number of items must equal the number of locators. 5 locators → always 4 commas.
+- Names are matched as "contains", so `Thai massage` finds `Thai massage ฿ 350 60 min`.
+- Commas inside an item are not possible. For `Hot stone ฿ 1,200`, write `Hot stone`.
+- `name : value` is split at the **first** ` : ` (with spaces), so `11:00` is safe.
 
-**ถ้ามี CSV อยู่แล้ว** Setup 4 จะ**เพิ่มต่อท้าย**ด้วย TC-ID ถัดไป แถวเดิมไม่ถูกแก้ scenario ที่ชื่อซ้ำกับของเดิมจะถูกข้ามและแจ้งให้ทราบ
+**If the CSV already exists**, Setup 4 **appends** new rows with the next TC-IDs. Existing rows are never changed. A scenario whose name already exists is skipped and reported.
 
 ---
 
-## 7. Setup 5 — สร้าง feature
+## 7. Setup 5 — Generate the feature
 
-**รัน:** `Ctrl+Shift+P` → **Run Task** → **Setup 5 — Generate feature** → Project / AccessFlow / Module / Feature
+**Run:** `Ctrl+Shift+P` → **Run Task** → **Setup 5 — Generate feature** → Project / AccessFlow / Module / Feature
 
-ได้:
+Creates:
 
 ```
 Bookings/bookings/
-├── bookings.spec.ts      ขั้นตอนพร้อมข้อมูลเทส
-├── bookings.helper.ts    กรอก / เลือก / กด ทีละค่า
-├── bookings.data.ts      แถวจาก CSV
+├── bookings.spec.ts      the flow with test data inserted
+├── bookings.helper.ts    fills / picks / clicks each item
+├── bookings.data.ts      the CSV rows
 └── bookings.types.ts
 ```
 
-ใช้เวลาประมาณ 1 วินาที ก่อนเขียนไฟล์จะตรวจไฟล์ต้นทางทั้ง 3: marker, รูปแบบ locator, จำนวนค่า, encoding, ตัวพิมพ์ของชื่อไฟล์ ถ้ามีอะไรผิด**จะไม่เขียนอะไรเลย** และบอกว่าต้องแก้อะไรที่ไหน
+It takes about a second. Before writing anything it checks the three source files: markers, locator format, item counts, encoding, file name case. If anything is wrong it **writes nothing** and tells you what to fix and where.
 
-อย่าแก้ขั้นตอนใน `spec.ts` โดยตรง ให้แก้ `_flows` แล้วลบโฟลเดอร์ feature แล้วรัน Setup 5 ใหม่ ส่วนการเพิ่ม `expect(...)` ใน `defaultVerify` ของ `spec.ts` ทำได้
+Do not edit the flow steps in `spec.ts`. Change `_flows` instead, delete the feature folder, and run Setup 5 again. Adding extra `expect(...)` checks to `defaultVerify` in `spec.ts` is fine.
 
 ---
 
-## 8. รันเทส
+## 8. Run the tests
 
-### `Test-Local/run-local.bat` (ทุก AuthType)
+### `Test-Local/run-local.bat` (all AuthTypes)
 
-1. ดับเบิลคลิก `run-local.bat`
-2. เลือก **Project** → **Access Flow** → **Module** (หรือทุก module) → **Feature** (หรือทุก feature)
-3. เลือก **Run ALL tests** หรือ **Select SPECIFIC test file**
-4. รายงาน HTML เปิดเองเมื่อรันเสร็จ
+1. Double-click `run-local.bat`
+2. Pick **Project** → **Access Flow** → **Module** (or all modules) → **Feature** (or all)
+3. Pick **Run ALL tests** or **Select SPECIFIC test file**
+4. The HTML report opens when the run finishes
 
-access flow แบบ `microsoft` และ `form` **ต้อง**ใช้ `run-local.bat` เพราะมันโหลด login ที่บันทึกไว้
+`microsoft` and `form` access flows **must** use `run-local.bat` — it loads the saved login.
 
-### Command line (เฉพาะ `none`)
+### Command line (`none` only)
 
 ```bash
 pnpm exec playwright test Test-Local/Nebula-Spa/No-Auth/Bookings/bookings
 ```
 
-| เติม | เพื่อ |
+| Add | To |
 |---|---|
-| `--headed` | ดูเบราว์เซอร์ตอนรัน |
-| `--ui` | ไล่ดูเทสทีละขั้น |
-| `-g "TC001"` | รันแค่ test case เดียว |
+| `--headed` | watch the browser |
+| `--ui` | step through tests visually |
+| `-g "TC001"` | run one test case |
 
-รายงาน: `pnpm exec playwright show-report`
+Report: `pnpm exec playwright show-report`
 
-### "ผ่าน" แปลว่าอะไร
+### What a pass means
 
-เทสที่สร้างขึ้นตรวจว่า**ไม่มี dialog error** และหน้าเว็บ**ยังอยู่ในเว็บของแอป** ไม่ได้ตรวจผลทางธุรกิจ (เช่น ค้นหาแล้วมีข้อมูลขึ้น) ถ้าต้องการ ให้เพิ่ม `expect(...)` ใน `defaultVerify` ของ spec
+Each generated test checks that **no error dialog appeared** and the page **stayed on the app's site**. It does not check business results (e.g. that a search returned rows). Add `expect(...)` to `defaultVerify` in the spec when you need that.
 
 ---
 
-## 9. เพิ่มหรือแก้ test case
+## 9. Add or change test cases
 
-| ต้องการ | ขั้นตอน |
+| I want to | Steps |
 |---|---|
-| **เพิ่ม** test case | Setup 4 แปะเฉพาะ scenario ใหม่ → **Setup 7** |
-| **แก้ / ลบ** test case | แก้ CSV ใน **VS Code** → **Setup 7** |
-| locator เปลี่ยน (เพิ่ม / ลบ / สลับลำดับ) | แก้ทุกแถวใน CSV ให้จำนวนค่าตรง → **Setup 7** |
+| **Add** test cases | Setup 4 with only the new scenarios → **Setup 7** |
+| **Edit / delete** test cases | edit the CSV in **VS Code** → **Setup 7** |
+| Locators changed (added / removed / reordered) | update every CSV row to the new count → **Setup 7** |
 
-**Setup 7** (`Run Task` → **Setup 7 — Update test data**) เขียนใหม่เฉพาะ `data.ts` และบอกว่า TC-ID ไหน**เพิ่มใหม่** และไหน**หายไป** ให้เช็ครายการที่หายไปทุกครั้ง ว่าตั้งใจลบจริง
+**Setup 7** (`Run Task` → **Setup 7 — Update test data**) rewrites only `data.ts` and lists which TC-IDs were **added** and **removed**. Check the removed list — deletions should be intentional.
 
-**อย่าแก้ CSV ด้วย Excel** Excel อาจบันทึกเป็น encoding ที่ไม่ใช่ UTF-8 (ภาษาไทยกลายเป็น `�`) และแปลงค่าอย่าง `0812345678` หรือ `11:00` เป็นตัวเลขหรือเวลา ถ้าจำเป็นต้องใช้ ให้ *Save As → CSV UTF-8*
-
----
-
-## 10. action หรือช่องกรอกแบบใหม่ (Setup 6)
-
-ใช้ Setup 6 เมื่อการรันหรือ Setup 7 แจ้งว่า:
-
-- **ไม่รู้จัก action** — ต้องการ action อื่นนอกจาก `|click` (เช่น `|download`, `|check`)
-- **unknown locator type** — ช่องกรอกที่ helper กรอกไม่เป็น (เช่น ตัวเลือกวันที่)
-
-**รัน:** แปะ template ของ Setup 6 ([ภาคผนวก ก](#setup-6--ขยาย-helper)) แล้วอธิบายสิ่งที่ต้องการเป็นภาษาปกติ ไม่ต้องเขียนโค้ด AI จะเขียนให้และแสดงสิ่งที่เปลี่ยนให้ดู
-
-จากนั้นใส่ action ใหม่ใน CSV → **Setup 7** → รันเทส
-
-**ข้อจำกัด**
-
-- มีผล**เฉพาะ feature นั้น**
-- ถ้ารัน Setup 5 ใหม่กับ feature นั้น `helper.ts` จะถูกสร้างใหม่และ**สิ่งที่เพิ่มจะหายไป**
-- ถ้าอยากให้ทุก feature ในอนาคตมีด้วย dev ต้องเพิ่มลงในแม่แบบ helper ใน `scripts/setup-5.mjs`
+**Do not edit the CSV in Excel.** Excel may save it in a non-UTF-8 encoding (non-English text becomes `�`) and turns values like `0812345678` or `11:00` into numbers or times. If you must use Excel, use *Save As → CSV UTF-8*.
 
 ---
 
-## 11. แก้ปัญหา
+## 10. New action or field type (Setup 6)
 
-| อาการ | สาเหตุ | แก้ |
+Use Setup 6 when a run or Setup 7 reports:
+
+- **unknown action** — you need something other than `|click` (e.g. `|download`, `|check`)
+- **unknown locator type** — a field the helper cannot fill (e.g. a date picker)
+
+**Run:** paste the Setup 6 template ([Appendix A](#setup-6--extend-helper)) and describe what you need in plain words. No code needed — the agent writes it and shows you the change.
+
+Then use the new action in the CSV → **Setup 7** → run.
+
+**Limits**
+
+- The extension applies to **that feature only**.
+- Running Setup 5 again for that feature rebuilds `helper.ts` and **removes** the extension.
+- To make it available for every future feature, a developer adds it to the helper template in `scripts/setup-5.mjs`.
+
+---
+
+## 11. Troubleshooting
+
+| Symptom | Cause | Fix |
 |---|---|---|
-| ไม่เห็น Task ในเมนู Run Task | VS Code เปิดโฟลเดอร์ผิดระดับ | เปิดโฟลเดอร์ `ttest-playwright` โดยตรง |
-| `node` is not recognized | VS Code หา Node ไม่เจอ | ปิดเปิด VS Code ใหม่ เช็ค `node --version` |
-| ตัวอัดขึ้น *Microsoft profile is not ready* | ยังไม่ได้ตั้งค่า login | [ตั้งค่า Login](#microsoft) |
-| เทส fail ตั้งแต่ขั้นแรก (หน้า login) | session หมดอายุหรือไม่ได้โหลด | ตั้งค่า login ใหม่ รันผ่าน `run-local.bat` |
-| *strict mode violation* | เจอหลาย element | ใส่ `.first()` ให้ locator นั้น หรือใส่ชื่อปุ่มให้ยาวขึ้น |
-| หาปุ่มวันที่ไม่เจอ | วันที่ใน CSV ผ่านไปแล้ว | แก้ CSV → Setup 7 |
-| ปุ่มเวลากดไม่ได้ | รอบก่อนจองไปแล้ว | ล้างข้อมูลในแอปก่อนรัน |
-| ไฟล์มี `�` หรือ `à¸…` | บันทึกผิด encoding (Excel, PowerShell) | บันทึกใหม่เป็น UTF-8 ใน VS Code |
-| *ตัวพิมพ์ต่างกัน — Linux/CI จะหาไม่เจอ* | ชื่อไฟล์ตัวพิมพ์เล็ก-ใหญ่ไม่ตรงกัน | เปลี่ยนชื่อให้ตรงกันทุกตัวอักษร |
-| เทสผ่านแต่ไม่มีอะไรเกิดขึ้น | การตรวจพื้นฐานตรวจไม่ลึก | เพิ่ม `expect(...)` ใน `defaultVerify` |
-| ข้อความของสคริปต์เป็นภาษาที่ไม่ต้องการ | ระบบตรวจภาษาของเครื่อง | [ภาคผนวก ข](#ภาคผนวก-ข--ภาษาของสคริปต์) |
+| Tasks do not appear in Run Task | VS Code opened the wrong folder | open the `ttest-playwright` folder itself |
+| `node` is not recognized | Node not on PATH for VS Code | restart VS Code; check `node --version` |
+| Recorder: *Microsoft profile is not ready* | login setup not done | [Login setup](#microsoft) |
+| Test fails at the first step (login page) | login session expired or not loaded | redo login setup; run via `run-local.bat` |
+| *strict mode violation* | several elements match | add `.first()` to that locator, or use a longer button name |
+| Date button not found | the date in the CSV has passed | update the CSV → Setup 7 |
+| Slot / time button disabled | a previous run already booked it | reset the app data before running |
+| `�` or `à¸…` in files | saved in the wrong encoding (Excel, PowerShell) | re-save as UTF-8 in VS Code |
+| *case differs — Linux/CI will not find it* | file names differ in upper/lower case | rename so all names match exactly |
+| Test passes but nothing happened | default check is shallow | add `expect(...)` to `defaultVerify` |
+| Script messages in the wrong language | system language detection | [Appendix B](#appendix-b--script-language) |
 
 ---
 
-## ภาคผนวก ก — Template ของ Prompt
+## Appendix A — Prompt templates
 
-แปะใน AI โหมด **Agent** ห้ามลบบรรทัด `Read: #file:` แทน `<…>` ด้วยค่าจริง
+Paste into your AI agent in **Agent mode**. Keep the `Read: #file:` line. Replace `<…>`.
 
 ### Setup 1 — Create-Project
 
-(ใช้ Task เร็วกว่า)
+(Faster as a Task.)
 
 ```markdown
 ### Setup 1 — Create-Project
@@ -481,13 +502,13 @@ Read: #file:prompts/setup-4-create-scenarios.md
 - Feature: <feature>
 
 **Scenarios**
-<ชื่อ scenario 1> : <ค่า 1>
-<ชื่อ scenario 2> : <ค่า 2>
+<scenario name 1> : <value 1>
+<scenario name 2> : <value 2>
 ```
 
-### Setup 5 — สร้าง feature
+### Setup 5 — Generate feature
 
-(ใช้ Task เร็วกว่า)
+(Faster as a Task.)
 
 ```markdown
 ### Setup 5 — Create feature
@@ -501,7 +522,7 @@ Read: #file:prompts/setup-5-create-features.md
 - Feature: <feature>
 ```
 
-### Setup 6 — ขยาย helper
+### Setup 6 — Extend helper
 
 ```markdown
 ### Setup 6 — Extend action
@@ -515,12 +536,12 @@ Read: #file:prompts/setup-6-extend-action.md
 - Feature: <feature>
 
 **Extension**
-<error ที่เจอ หรือสิ่งที่ต้องการ เช่น "|download: กดปุ่มแล้วรอไฟล์ดาวน์โหลด">
+<the error message, or what you need — e.g. "|download: click, then wait for the file download">
 ```
 
-### Setup 7 — อัปเดตข้อมูลเทส
+### Setup 7 — Update test data
 
-(ใช้ Task เร็วกว่า)
+(Faster as a Task.)
 
 ```markdown
 ### Setup 7 — Update TCs
@@ -536,12 +557,12 @@ Read: #file:prompts/setup-7-update-tcs.md
 
 ---
 
-## ภาคผนวก ข — ภาษาของสคริปต์
+## Appendix B — Script language
 
-สคริปต์แสดงผลเป็นไทยหรืออังกฤษตามภาษาของเครื่อง ถ้าต้องการบังคับ เปิด `.vscode/tasks.json` แล้วตั้งค่า:
+The scripts print Thai or English, following the system language. To force one, open `.vscode/tasks.json` and set:
 
 ```json
-"env": { "TTEST_LANG": "th" }
+"env": { "TTEST_LANG": "en" }
 ```
 
-(`"en"` = อังกฤษ, ว่าง = อัตโนมัติ) ถ้ารันจาก terminal: `set TTEST_LANG=th` (cmd) หรือ `$env:TTEST_LANG="th"` (PowerShell)
+(`"th"` for Thai, empty for automatic). From a terminal: `set TTEST_LANG=en` (cmd) or `$env:TTEST_LANG="en"` (PowerShell).
