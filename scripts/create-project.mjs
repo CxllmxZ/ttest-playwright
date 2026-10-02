@@ -16,6 +16,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// Scratch file for the recorded login (git-ignored). The same text is in
+// create-project.mjs and form-login.mjs — each script works on its own.
+const LOGIN_SCRATCH_NAME = 'login-locators.ts';
+const LOGIN_SCRATCH_PLACEHOLDER = `// @ts-nocheck — scratch file, not type-checked
+// Paste the LOGIN part of your recording here (git-ignored — never committed).
+//   1. Test-Local/run-codegen.bat → "Record login and test flow" → log in
+//   2. Paste the recorded lines below, from page.goto(...) up to the point you are inside the app
+//      (including steps like choosing a company or closing a popup)
+//   3. VS Code: Run Task → "Setup 2 — Form login"
+// Setup 2 writes login.setup.ts (username/password become variables) and resets this file,
+// so the real values do not stay on disk.
+export {};
+`;
 const TEST_LOCAL = path.join(ROOT, 'Test-Local');
 const VALID_AUTH = ['none', 'microsoft', 'form'];
 const CONVENTION = ['_flows', '_locators', '_scenarios'];
@@ -26,6 +40,7 @@ function detectLang() {
   const loc = Intl.DateTimeFormat().resolvedOptions().locale || '';
   return loc.toLowerCase().startsWith('th') ? 'th' : 'en';
 }
+
 const LANG = detectLang();
 const t = (th, en) => (LANG === 'th' ? th : en);
 
@@ -132,6 +147,21 @@ function main() {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, '.gitkeep'), '');
   }
+  let loginNote = null;
+  if (authType === 'form') {
+    const scratch = path.join(accessDir, '_login', LOGIN_SCRATCH_NAME);
+    const loginSetup = path.join(accessDir, '_login', 'login.setup.ts');
+    if (!fs.existsSync(scratch)) {
+      fs.mkdirSync(path.dirname(scratch), { recursive: true });
+      fs.writeFileSync(scratch, LOGIN_SCRATCH_PLACEHOLDER, { encoding: 'utf8' });
+    }
+    loginNote = fs.existsSync(loginSetup)
+      ? t(`ใช้ ${rel(loginSetup)} เดิม`, `kept existing ${rel(loginSetup)}`)
+      : t(
+          `เตรียม ${rel(scratch)} → อัด login ด้วย run-codegen แล้วแปะในไฟล์นี้ → Setup 2`,
+          `prepared ${rel(scratch)} → record the login with run-codegen, paste it into this file → Setup 2`
+        );
+  }
   if (configAction !== 'keep') {
     fs.writeFileSync(configFile, JSON.stringify({ authType }, null, 2) + '\n', { encoding: 'utf8' });
   }
@@ -154,6 +184,7 @@ function main() {
   console.log(`   access flow: ${access}${state(newAccess)}`);
   console.log(`   module: ${moduleName}${state(true)} — _flows/ _locators/ _scenarios/`);
   console.log(`   ${configNote}`);
+  if (loginNote) console.log(`   ${loginNote}`);
   console.log(t(
     '▶  ถัดไป: อัด codegen แล้วแบ่งลง _flows/<feature>.ts (marker SETUP / PER TEST / DATA)\n          และ _locators/<feature>.ts แล้วใช้ Setup 3',
     '▶  next: record with codegen, split it into _flows/<feature>.ts (SETUP / PER TEST / DATA markers)\n          and _locators/<feature>.ts, then run Setup 3'

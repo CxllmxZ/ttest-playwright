@@ -11,7 +11,8 @@ English: [GUIDE.md](GUIDE.md)
 | ต้องการ | ทำ | วิธี |
 |---|---|---|
 | เริ่มโปรเจค / access flow / module ใหม่ | **Setup 1** | ⚡ Task |
-| เตรียม login (Microsoft / form) | ตั้งค่า Login | สคริปต์ `.bat` |
+| เตรียม login — Microsoft | ตั้งค่า Login | สคริปต์ `.bat` |
+| เตรียม login — form | อัด → **Setup 2** → `.bat` | ⚡ Task |
 | อัดขั้นตอนการใช้งาน | Codegen | `Test-Local/run-codegen.bat` |
 | จัด locator ที่อัดได้ให้เป็นรายการ | **Setup 3** | 💬 Prompt |
 | เขียน test case | **Setup 4** | 💬 Prompt |
@@ -24,7 +25,6 @@ English: [GUIDE.md](GUIDE.md)
 - **⚡ Task:** VS Code → `Ctrl+Shift+P` → **Run Task** → เลือก Setup → กรอกค่าในกล่อง
 - **💬 Prompt:** ก๊อป template จาก[ภาคผนวก ก](#ภาคผนวก-ก--template-ของ-prompt) ไปแปะใน AI (เช่น GitHub Copilot โหมด **Agent**)
 
-ไม่มี Setup 2 แล้ว (รวมเข้ากับ Setup 1)
 
 ---
 
@@ -32,7 +32,7 @@ English: [GUIDE.md](GUIDE.md)
 
 0. [ติดตั้ง](#0-ติดตั้ง)
 1. [Setup 1 — สร้างโปรเจค](#1-setup-1--สร้างโปรเจค)
-2. [ตั้งค่า Login](#2-ตั้งค่า-login)
+2. [เลือกเส้นทาง (none / microsoft / form)](#2-เลือกเส้นทาง)
 3. [อัดขั้นตอนด้วย codegen](#3-อัดขั้นตอนด้วย-codegen)
 4. [แบ่งโค้ดที่อัดได้ลง `_flows` และ `_locators`](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)
 5. [Setup 3 — Locators](#5-setup-3--locators)
@@ -105,41 +105,98 @@ Test-Local/Nebula-Spa/No-Auth/
 
 ---
 
-## 2. ตั้งค่า Login
+## 2. เลือกเส้นทาง
 
-ทำ**ก่อนอัด codegen** เพราะตัวอัดจะเปิดแอปด้วย login ที่บันทึกไว้
+เลือกเส้นทางตาม **AuthType** ที่เลือกใน Setup 1 แต่ละแบบมีลำดับขั้นตอนไม่เหมือนกัน
 
-### `none`
+| | `none` | `microsoft` | `form` |
+|---|---|---|---|
+| เตรียม login | — | **ก่อน**อัด codegen | **หลัง**อัด codegen (ใช้สิ่งที่อัดได้) |
+| ขั้นพิเศษ | — | — | Setup 2 |
+| รันเทสด้วย | `run-local.bat` หรือ command line | `run-local.bat` เท่านั้น | `run-local.bat` เท่านั้น |
 
-ไม่ต้องทำอะไร
+หัวข้อ 3–10 อธิบายแต่ละขั้นแบบละเอียด แต่ละเส้นทางด้านล่างลิงก์ไปให้
 
-### `microsoft`
+### เส้นทาง A — ไม่มี login (`none`)
 
-1. ดับเบิลคลิก **`Authen/Microsoft/setup-microsoft-auth.bat`**
-2. ใส่ URL ของแอป
-3. login ด้วย Microsoft (รวม MFA) ในเบราว์เซอร์ที่เปิดขึ้นมา
-4. รอจนแอปโหลดเสร็จ
-5. กลับไปที่หน้าต่างสคริปต์ แล้วกด **Enter**
+1. **Setup 1** เลือก AuthType `none` ([หัวข้อ 1](#1-setup-1--สร้างโปรเจค))
+2. **อัด** test case หนึ่งรอบ — `Test-Local/run-codegen.bat` ([หัวข้อ 3](#3-อัดขั้นตอนด้วย-codegen))
+3. **แบ่ง**โค้ดลง `_flows` และ `_locators` ([หัวข้อ 4](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators))
+4. **Setup 3** — locators ([หัวข้อ 5](#5-setup-3--locators))
+5. **Setup 4** — scenarios ([หัวข้อ 6](#6-setup-4--scenarios))
+6. **Setup 5** — สร้าง feature ([หัวข้อ 7](#7-setup-5--สร้าง-feature))
+7. **รันเทส** — `run-local.bat` หรือ `pnpm exec playwright test …` ([หัวข้อ 8](#8-รันเทส))
 
-profile ของเบราว์เซอร์ถูกเก็บไว้ที่ `Authen/Microsoft/profile/` (ไม่ขึ้น git) ทำซ้ำเมื่อ session หมดอายุ
+### เส้นทาง B — login Microsoft (`microsoft`)
 
-ถ้าไม่ทำขั้นนี้ ตัวอัดจะหยุดและขึ้นว่า *"Microsoft profile is not ready"*
+1. **Setup 1** เลือก AuthType `microsoft`
+2. **บันทึก login Microsoft** (ครั้งเดียวต่อเครื่อง ใช้ร่วมกันทุกโปรเจคที่เป็น `microsoft`):
+   1. ดับเบิลคลิก **`Authen/Microsoft/setup-microsoft-auth.bat`**
+   2. ใส่ URL ของแอป
+   3. login ด้วย Microsoft (รวม MFA) ในเบราว์เซอร์ที่เปิดขึ้นมา
+   4. รอจนแอปโหลดเสร็จ
+   5. กลับไปที่หน้าต่างสคริปต์ แล้วกด **Enter**
 
-### `form`
+   profile ถูกเก็บที่ `Authen/Microsoft/profile/` (ไม่ขึ้น git) ถ้าไม่ทำขั้นนี้ ตัวอัดจะหยุดและขึ้น *"Microsoft profile is not ready"*
+3. **อัด** test case หนึ่งรอบ — `run-codegen.bat` เปิดแอปแบบ login แล้ว ([หัวข้อ 3](#3-อัดขั้นตอนด้วย-codegen))
+4. **แบ่ง**โค้ด ([หัวข้อ 4](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)) ใน SETUP เก็บเฉพาะขั้นตอน*ภายในแอป*หลัง sign-in (เช่น เลือกสาขา) ส่วนการ sign-in ของ Microsoft ไม่ถูกอัดมาอยู่แล้ว
+5. **Setup 3 → Setup 4 → Setup 5** ([หัวข้อ 5–7](#5-setup-3--locators))
+6. **รันเทส** — `run-local.bat` เท่านั้น ([หัวข้อ 8](#8-รันเทส))
 
-access flow แบบ `form` แต่ละตัวมีสคริปต์ login ของตัวเอง: **`Test-Local/<Project>/<AccessFlow>/_login/login.setup.ts`** Setup 1 สร้างให้จาก template (`Authen/Form-Login/login.setup.template.ts`)
+เมื่อ session หมดอายุ: ทำข้อ 2 ใหม่
 
-1. เปิด `_login/login.setup.ts` ลบบรรทัด `throw new Error(...)` ด้านบนออก แล้วแก้ TODO 4 จุด:
-   1. URL ของหน้า login
-   2. ช่องกรอกและปุ่มยืนยันของฟอร์ม login — อัดด้วย `run-codegen.bat` → **Record login and test flow** เอาแค่ locator มาใช้ แล้วใส่ `username` / `password` เป็นค่า
-   3. การรอที่พิสูจน์ว่า login สำเร็จแล้ว (URL หรือ element ที่เห็นหลัง login เท่านั้น)
-   4. แอปเก็บ session แบบไหน: `saveStorageState` สำหรับ cookies / localStorage (แอปส่วนใหญ่), `saveSessionStorage` สำหรับแอปที่เก็บใน sessionStorage
-2. ดับเบิลคลิก **`Authen/Form-Login/setup-form-auth.bat`** → เลือก access flow → กรอก username และรหัสผ่าน (รหัสผ่านถูกซ่อน และไม่ถูกบันทึกลงไฟล์)
-3. session ถูกเก็บที่ `_login/session-storage.json` (ไม่ขึ้น git)
+### เส้นทาง C — login แบบฟอร์ม (`form`)
 
-ห้ามเขียนรหัสผ่านลงใน `login.setup.ts` ทำข้อ 2 ซ้ำเมื่อ session หมดอายุ
+access flow แบบ `form` แต่ละตัวมีสคริปต์ login ของตัวเอง ไม่ต้องเขียนเอง แค่**อัดการ login หนึ่งครั้ง** แล้ว Setup 2 สร้างให้
 
-รายละเอียด (รหัสผ่าน, อายุ session): [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md)
+```
+Test-Local/<Project>/<AccessFlow>/_login/
+├── login-locators.ts      Setup 1 สร้าง — ที่สำหรับแปะ login ที่อัดได้ (ไม่ขึ้น git)
+├── login.setup.ts         Setup 2 สร้าง — สคริปต์ login (ขึ้น git, ไม่มีรหัสผ่าน)
+└── session-storage.json   setup-form-auth.bat สร้าง — session ที่บันทึกไว้ (ไม่ขึ้น git)
+```
+
+1. **Setup 1** เลือก AuthType `form` — สร้าง `_login/login-locators.ts` ให้
+2. **อัด login และ test case รวดเดียว** — `run-codegen.bat` → เลือกโปรเจค / access flow → **Record login and test flow** แล้ว login (รวมขั้นตอนที่ต้องทำก่อนเข้าแอปได้ เช่น เลือกบริษัท, ปิด popup) แล้วทำ test case หนึ่งรอบ ยังไม่ต้องปิดหน้าต่างอัด
+3. **แปะส่วน login** — ตั้งแต่ `page.goto(...)` จนถึงจุดที่เข้าแอปแล้ว — ลงใน `_login/login-locators.ts` ใต้คอมเมนต์
+4. **Setup 2** — `Ctrl+Shift+P` → **Run Task** → **Setup 2 — Form login** → เลือกโปรเจค / access flow → เลือกว่าแอปเก็บ login แบบไหน ([วิธีเลือก](#cookies-หรือ-sessionstorage))
+   สคริปต์จะสร้าง `login.setup.ts` โดยเปลี่ยน username กับรหัสผ่านเป็นตัวแปร แล้ว**ล้าง `login-locators.ts`** ค่าจริงจึงไม่เหลือในเครื่อง
+5. **บันทึก session** — ดับเบิลคลิก **`Authen/Form-Login/setup-form-auth.bat`** → เลือก access flow → พิมพ์ username และรหัสผ่านใน terminal (รหัสผ่านถูกซ่อน และไม่ถูกบันทึกลงไฟล์) เบราว์เซอร์จะ login เอง แล้วบันทึก `session-storage.json`
+6. **แบ่งโค้ดส่วนที่เหลือ** ([หัวข้อ 4](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)) ใน SETUP **ลบบรรทัดของฟอร์ม login ออก** (ช่อง email, รหัสผ่าน, ปุ่มยืนยันของฟอร์ม) เพราะ session ที่บันทึกไว้ทำให้ฟอร์มไม่ขึ้นมา ส่วนปุ่ม "Login" บนหน้าเว็บที่กดเพื่อไปหน้าฟอร์ม ให้เก็บไว้
+
+   ```typescript
+   // === SETUP ===
+   await page.goto('https://app.example.com/');
+   await page.getByRole('button', { name: 'Login' }).click();          // เก็บ — ปุ่มบนหน้าเว็บ
+   // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // ลบ — อยู่ในฟอร์ม login
+   // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // ลบ — อยู่ในฟอร์ม login
+   // await page.getByRole('button', { name: 'Sign in' }).click();     // ลบ — อยู่ในฟอร์ม login
+   ```
+7. **Setup 3 → Setup 4 → Setup 5** ([หัวข้อ 5–7](#5-setup-3--locators))
+8. **รันเทส** — `run-local.bat` เท่านั้น ([หัวข้อ 8](#8-รันเทส))
+
+ข้อ 2–4 ทำครั้งเดียวต่อแอป (ทำใหม่เฉพาะเมื่อหน้า login เปลี่ยน) เมื่อ session หมดอายุ: ทำข้อ 5 ใหม่
+
+`login-locators.ts` ไม่ขึ้น git รหัสที่แปะไว้จึงไม่หลุด แม้จะทำค้างไว้กลางทาง และ `setup-form-auth.bat` จะไม่ยอมรันจนกว่า Setup 2 จะสร้าง `login.setup.ts`
+
+#### Cookies หรือ sessionStorage
+
+Setup 2 จะถามว่าแอปเก็บ login ไว้ที่ไหน:
+
+| เลือก | เมื่อ |
+|---|---|
+| **cookies / localStorage** | แอปส่วนใหญ่ — **ไม่แน่ใจให้เลือกอันนี้** |
+| **sessionStorage** | แอปที่เก็บ login ไว้เฉพาะแท็บเบราว์เซอร์นั้น |
+
+ถ้าเลือกผิด ข้อ 5 จะแจ้งว่า *"Form Login succeeded, but storageState is empty … use saveSessionStorage() instead"* ให้แปะ login ลง `login-locators.ts` ใหม่ (Setup 2 ล้างไปแล้ว) แล้วรัน Setup 2 โดยเลือก **sessionStorage**
+
+ถ้าอยากเช็คก่อน: login แอปในเบราว์เซอร์ปกติ → กด `F12` → แท็บ **Application** →
+- **Cookies** มีรายการชื่อคล้าย `session`, `token`, `auth` → cookies
+- **Cookies** ว่าง แต่ **Session Storage** มีข้อมูล → sessionStorage
+
+ตัวอย่างที่รู้แล้ว: Nebula (NextAuth) = cookies, WEF Dealer = sessionStorage
+
+รายละเอียดเพิ่ม: [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md)
 
 ---
 
@@ -244,21 +301,7 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
 - ถ้าหน้าเว็บมีหน้าจอ loading ต้องใส่ `await waitForLoading(page);` เองตรงจุดที่ต้องรอ ระบบไม่ใส่ให้อัตโนมัติ
 - **ห้ามใส่รหัสผ่านใน `_flows`** ไฟล์นี้ขึ้น git และถูกก๊อปไปอยู่ใน spec
 
-**เรื่องขั้นตอน login ใน SETUP**
-
-- `microsoft`: runner ใช้ profile Microsoft ที่บันทึกไว้ เก็บไว้เฉพาะขั้นตอน*ภายในแอป*หลัง sign-in (เช่น เลือกสาขา)
-- `form`: runner โหลด session ที่บันทึกไว้ **ฟอร์ม login จึงไม่ขึ้นมา** เก็บทุกขั้นตอนไว้ **ยกเว้นขั้นตอนในหน้าฟอร์ม login** (ช่อง email, รหัสผ่าน, ปุ่มยืนยันของฟอร์ม) ส่วนปุ่ม "Login" บนหน้าเว็บที่กดเพื่อไปหน้าฟอร์ม ให้เก็บไว้ เพราะเมื่อมี session แล้ว กดปุ่มนี้จะเข้าแอปเลย
-
-  ```typescript
-  // === SETUP ===
-  await page.goto('https://app.example.com/');
-  await page.getByRole('button', { name: 'Login' }).click();          // เก็บ — ปุ่มบนหน้าเว็บ
-  // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // ลบ — อยู่ในฟอร์ม login
-  // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // ลบ — อยู่ในฟอร์ม login
-  // await page.getByRole('button', { name: 'Sign in' }).click();     // ลบ — อยู่ในฟอร์ม login
-  ```
-
-  ถ้า session หมดอายุ เทสจะไปหยุดที่ฟอร์ม login ให้รัน `setup-form-auth.bat` ใหม่
+**ขั้นตอน login ใน SETUP:** ดู[เส้นทาง B ข้อ 4](#เส้นทาง-b--login-microsoft-microsoft) (Microsoft) และ[เส้นทาง C ข้อ 6](#เส้นทาง-c--login-แบบฟอร์ม-form) (form)
 
 ### ตัวอย่าง — ปุ่มพิมพ์ (หลัง DATA ว่าง)
 
@@ -442,9 +485,12 @@ pnpm exec playwright test Test-Local/Nebula-Spa/No-Auth/Bookings/bookings
 |---|---|---|
 | ไม่เห็น Task ในเมนู Run Task | VS Code เปิดโฟลเดอร์ผิดระดับ | เปิดโฟลเดอร์ `ttest-playwright` โดยตรง |
 | `node` is not recognized | VS Code หา Node ไม่เจอ | ปิดเปิด VS Code ใหม่ เช็ค `node --version` |
-| ตัวอัดขึ้น *Microsoft profile is not ready* | ยังไม่ได้ตั้งค่า login | [ตั้งค่า Login](#microsoft) |
+| ตัวอัดขึ้น *Microsoft profile is not ready* | ยังไม่ได้บันทึก login Microsoft | [เส้นทาง B ข้อ 2](#เส้นทาง-b--login-microsoft-microsoft) |
 | เทส fail ตั้งแต่ขั้นแรก (หน้า login) | session หมดอายุหรือไม่ได้โหลด | ตั้งค่า login ใหม่ รันผ่าน `run-local.bat` |
-| *strict mode violation* | เจอหลาย element | ใส่ `.first()` ให้ locator นั้น หรือใส่ชื่อปุ่มให้ยาวขึ้น |
+| *strict mode violation* | เจอหลาย element — มักเป็นปุ่มอื่นที่ชื่อ*มีคำนั้นอยู่* (เช่น แถวในตารางที่แสดงสถานะเดียวกัน) | จำกัดให้หาในกล่องนั้น (`page.getByRole('dialog').getByRole('button', …)`), ใช้ชื่อตรงทุกตัวอักษร (`{ name: value, exact: true }`) หรือใส่ `.first()` เฉพาะเมื่อทุกตัวที่เจอเป็นปุ่มเดียวกันจริง |
+| *Login setup file was not found* | ยังไม่ได้สร้าง `login.setup.ts` | แปะ login ที่อัดได้ใน `_login/login-locators.ts` → Setup 2 |
+| *storageState is empty* (form login) | แอปเก็บ login ใน sessionStorage | แปะใหม่ → Setup 2 เลือก **sessionStorage** ([รายละเอียด](#cookies-หรือ-sessionstorage)) |
+| Setup 2: *หาช่องรหัสผ่านไม่ได้แน่ชัด* | โค้ดที่แปะมีช่องอื่นปนมา | เหลือไว้เฉพาะบรรทัดของฟอร์ม login ใน `login-locators.ts` |
 | หาปุ่มวันที่ไม่เจอ | วันที่ใน CSV ผ่านไปแล้ว | แก้ CSV → Setup 7 |
 | ปุ่มเวลากดไม่ได้ | รอบก่อนจองไปแล้ว | ล้างข้อมูลในแอปก่อนรัน |
 | ไฟล์มี `�` หรือ `à¸…` | บันทึกผิด encoding (Excel, PowerShell) | บันทึกใหม่เป็น UTF-8 ใน VS Code |
@@ -472,6 +518,21 @@ Read: #file:prompts/setup-1-create-project.md
 - AccessFlow: <access-flow>
 - Module: <module>
 - AuthType: <none | microsoft | form>
+```
+
+### Setup 2 — Form login
+
+(ใช้ Task เร็วกว่า)
+
+```markdown
+### Setup 2 — Form login
+
+Read: #file:prompts/setup-2-form-login.md
+
+**Location**
+- Project: <project>
+- AccessFlow: <access-flow>
+- Session: <cookies | sessionStorage>
 ```
 
 ### Setup 3 — Locators

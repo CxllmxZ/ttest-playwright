@@ -16,15 +16,17 @@ ttest-playwright/
 ├── doc/GUIDE.md, GUIDE.th.md           # User guide (EN / TH), prompt templates in Appendix A
 ├── prompts/                             # Setup rules for AI
 │   ├── setup-1-create-project.md        # Tells agent to run scripts/create-project.mjs
+│   ├── setup-2-form-login.md            # Tells agent to run scripts/form-login.mjs
 │   ├── setup-3-modify-locators.md
 │   ├── setup-4-create-scenarios.md
 │   ├── setup-5-create-features.md       # Tells agent to run scripts/setup-5.mjs
 │   ├── setup-6-extend-action.md
 │   └── setup-7-update-tcs.md
 ├── scripts/
-│   ├── create-project.mjs               # Setup 1: project + access flow + module + config
+│   ├── create-project.mjs               # Setup 1: project + access flow + module + config (+ _login/login-locators.ts for form)
+│   ├── form-login.mjs                   # Setup 2: _login/login-locators.ts → _login/login.setup.ts
 │   └── setup-5.mjs                      # Setup 5: 4 files · Setup 7: data.ts only (--data-only)
-├── .vscode/tasks.json                   # Run Setup 1 / 5 / 7 from Run Task menu (committed)
+├── .vscode/tasks.json                   # Run Setup 1 / 2 / 5 / 7 from Run Task menu (committed)
 ├── analyze-project.bat / .ps1           # JSON structure generator
 ├── .agent-cache/                        # JSON cache (gitignored)
 │
@@ -112,7 +114,7 @@ One user-facing action with its own success criteria. Multiple actions on the sa
 2. **Order is source of truth** — `_locators/` index N ↔ CSV Value item N.
 3. **Universal helper** — no per-feature action taxonomy. Helper dispatches by value content and locator shape (Section 9).
 4. **CSV drives test data** — Value column determines what each TC does at the DATA point.
-5. **Mechanical work is done by scripts, not AI** — Setup 1, 5, 7 are scripts (run via VS Code Task or by the agent). AI is used where judgment is needed (Setup 3, 6) or multi-line input comes from chat (Setup 4).
+5. **Mechanical work is done by scripts, not AI** — Setup 1, 2, 5, 7 are scripts (run via VS Code Task or by the agent). AI is used where judgment is needed (Setup 3, 6) or multi-line input comes from chat (Setup 4).
 
 ### File writing rules (all setups)
 
@@ -123,7 +125,7 @@ One user-facing action with its own success criteria. Multiple actions on the sa
 
 **Why:** PowerShell `Out-File` writes UTF-16 and corrupts Thai (`à¸Šà¸·à¹ˆà¸­`); shell escapes leak literal `` `n `` into files.
 
-**Exception:** Setup 1, 5, 7 run `node scripts/...` in the terminal. The script writes the files (UTF-8), not the shell. These are the only setups that run a terminal command.
+**Exception:** Setup 1, 2, 5, 7 run `node scripts/...` in the terminal. The script writes the files (UTF-8), not the shell. These are the only setups that run a terminal command.
 
 ### Locator rules (for HUMAN-written codegen)
 
@@ -144,6 +146,7 @@ One user-facing action with its own success criteria. Multiple actions on the sa
 
 - `.env` (form login credentials)
 - `Test-Local/**/_login/session-storage.json` (and legacy `state.json`)
+- `Test-Local/**/_login/login-locators.ts` (scratch file for a pasted login recording)
 - `Authen/Microsoft/profile/`, `Authen/Microsoft/state.json`
 - `.agent-cache/*.json`
 
@@ -168,9 +171,9 @@ For Copilot/Cursor with native workspace access.
 
 ## Section 4: Setups
 
-6 setup commands, numbered 1 and 3–7 (Setup 2 was merged into Setup 1). Paste templates: `doc/GUIDE.md` Appendix A.
+7 setup commands. Paste templates: `doc/GUIDE.md` Appendix A.
 
-**Two ways to run a script setup (1, 5, 7):**
+**Two ways to run a script setup (1, 2, 5, 7):**
 
 | Way | How | When |
 |---|---|---|
@@ -181,6 +184,7 @@ Both run the same script with the same result.
 
 **Project init:**
 - **Setup 1 — Create-Project** — project + access flow + module + `project.config.json` + `_flows/ _locators/ _scenarios/` (with `.gitkeep`). Runs `scripts/create-project.mjs`. Also used to add another module or access flow to an existing project.
+- **Setup 2 — Form login** — `form` access flows only: converts a recorded login pasted into the git-ignored scratch file `_login/login-locators.ts` into `_login/login.setup.ts` (username/password become variables), then clears the scratch file. Agents must never open `login-locators.ts` (it may hold a real password). Runs `scripts/form-login.mjs`. Then `Authen/Form-Login/setup-form-auth.bat` saves the session.
 
 **Per feature:**
 - **Setup 3** — Bootstrap locators (raw codegen → array, classify parametric/static)
@@ -461,7 +465,7 @@ Not yet supported (add via Setup 6 when needed): `|check`, `|toggle`.
 
 ## Changelog
 
-- 2026-09-28 (v10) — Setup 5 now runs `scripts/setup-5.mjs` (deterministic generator); AI no longer writes the 4 files. Section 8 reduced to behavior description — script is the single source of truth for templates. Core principle "Locator = WHERE, Value = WHAT". Parametric locators documented (2-arg, no default, arity dispatch). Value count must equal locator count (hard fail, replaces `Math.min`). `waitForLoading` only when written in `_flows/`. `defaultVerify` checks origin of SETUP URL (was `/<module>/`). `_flows/` and `_locators/` now committed. `authType` values: `none` / `microsoft` / `form` (`""` invalid), config at access flow level. Flat structure removed. Helper import path fixed to `../_locators/<feature>`. Comma-in-button-name rule (use unique partial name). File-writing rules made global. Setup 7 runs `setup-5.mjs --data-only`. Setup 4 appends to an existing CSV instead of overwriting. Setup 1 + 2 merged into Setup 1 Create-Project (`scripts/create-project.mjs`, AuthType required); Setup 2 removed, 3–7 keep their numbers. Added `.vscode/tasks.json` to run Setup 1/5/7 without the agent. Setup 6 aligned with the generated helper (per-feature only, no AGENTS.md edits).
+- 2026-09-28 (v10) — Setup 5 now runs `scripts/setup-5.mjs` (deterministic generator); AI no longer writes the 4 files. Section 8 reduced to behavior description — script is the single source of truth for templates. Core principle "Locator = WHERE, Value = WHAT". Parametric locators documented (2-arg, no default, arity dispatch). Value count must equal locator count (hard fail, replaces `Math.min`). `waitForLoading` only when written in `_flows/`. `defaultVerify` checks origin of SETUP URL (was `/<module>/`). `_flows/` and `_locators/` now committed. `authType` values: `none` / `microsoft` / `form` (`""` invalid), config at access flow level. Flat structure removed. Helper import path fixed to `../_locators/<feature>`. Comma-in-button-name rule (use unique partial name). File-writing rules made global. Setup 7 runs `setup-5.mjs --data-only`. Setup 4 appends to an existing CSV instead of overwriting. Setup 1 + 2 merged into Setup 1 Create-Project (`scripts/create-project.mjs`, AuthType required); Setup 2 removed, 3–7 keep their numbers. Added `.vscode/tasks.json` to run Setup 1/5/7 without the agent. Setup 6 aligned with the generated helper (per-feature only, no AGENTS.md edits). New Setup 2 — Form login (`scripts/form-login.mjs`); Setup 1 creates the git-ignored scratch file `_login/login-locators.ts` for form access flows; `setup-form-auth.ps1` refuses unconverted login scripts.
 - 2026-09-27 (v9.1, undocumented at the time) — Parametric locators introduced in Setup 3/5 (TT5).
 - 2026-09-20 (v9) — Dropped verify-helpers setup; removed `_shared/`. Renumbered to 7 setups.
 - 2026-09-20 (v8) — Cases renamed to Setups (8 total).

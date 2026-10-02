@@ -11,7 +11,8 @@ This guide walks through the full workflow, from an empty repository to running 
 | I want to… | Do | How |
 |---|---|---|
 | Start a new project / access flow / module | **Setup 1** | ⚡ Task |
-| Prepare login (Microsoft / form) | Login setup | `.bat` script |
+| Prepare login — Microsoft | Login setup | `.bat` script |
+| Prepare login — form | record → **Setup 2** → `.bat` | ⚡ Task |
 | Record a flow | Codegen | `Test-Local/run-codegen.bat` |
 | Turn recorded locators into a locator list | **Setup 3** | 💬 Prompt |
 | Write test cases | **Setup 4** | 💬 Prompt |
@@ -24,7 +25,6 @@ This guide walks through the full workflow, from an empty repository to running 
 - **⚡ Task:** VS Code → `Ctrl+Shift+P` → **Run Task** → pick the setup → fill in the boxes.
 - **💬 Prompt:** paste the template from [Appendix A](#appendix-a--prompt-templates) into your AI agent (e.g. GitHub Copilot in **Agent mode**).
 
-Setup 2 no longer exists (merged into Setup 1).
 
 ---
 
@@ -32,7 +32,7 @@ Setup 2 no longer exists (merged into Setup 1).
 
 0. [Install](#0-install)
 1. [Setup 1 — Create the project](#1-setup-1--create-the-project)
-2. [Login setup](#2-login-setup)
+2. [Choose your path (none / microsoft / form)](#2-choose-your-path)
 3. [Record the flow with codegen](#3-record-the-flow-with-codegen)
 4. [Split the recording into `_flows` and `_locators`](#4-split-the-recording-into-_flows-and-_locators)
 5. [Setup 3 — Locators](#5-setup-3--locators)
@@ -105,41 +105,98 @@ Test-Local/Nebula-Spa/No-Auth/
 
 ---
 
-## 2. Login setup
+## 2. Choose your path
 
-Do this **before recording**, because the recorder opens the app with the saved login.
+Pick the path that matches the **AuthType** you chose in Setup 1. The order of steps is different for each.
 
-### `none`
+| | `none` | `microsoft` | `form` |
+|---|---|---|---|
+| Login is prepared | — | **before** recording | **after** recording (from the recording) |
+| Extra setup | — | — | Setup 2 |
+| Run tests with | `run-local.bat` or command line | `run-local.bat` only | `run-local.bat` only |
 
-Nothing to do.
+Sections 3–10 explain each step in detail; the paths below link to them.
 
-### `microsoft`
+### Path A — No login (`none`)
 
-1. Double-click **`Authen/Microsoft/setup-microsoft-auth.bat`**
-2. Enter the application URL
-3. Log in with Microsoft (including MFA) in the browser that opens
-4. Wait until the application has fully loaded
-5. Go back to the script window and press **Enter**
+1. **Setup 1** with AuthType `none` ([section 1](#1-setup-1--create-the-project))
+2. **Record** one test case — `Test-Local/run-codegen.bat` ([section 3](#3-record-the-flow-with-codegen))
+3. **Split** the recording into `_flows` and `_locators` ([section 4](#4-split-the-recording-into-_flows-and-_locators))
+4. **Setup 3** — locators ([section 5](#5-setup-3--locators))
+5. **Setup 4** — scenarios ([section 6](#6-setup-4--scenarios))
+6. **Setup 5** — generate the feature ([section 7](#7-setup-5--generate-the-feature))
+7. **Run** — `run-local.bat` or `pnpm exec playwright test …` ([section 8](#8-run-the-tests))
 
-The browser profile is saved in `Authen/Microsoft/profile/` (git-ignored). Repeat these steps when the session expires.
+### Path B — Microsoft login (`microsoft`)
 
-Without this step, the recorder stops with *"Microsoft profile is not ready"*.
+1. **Setup 1** with AuthType `microsoft`
+2. **Save the Microsoft login** (once per machine, shared by every `microsoft` project):
+   1. double-click **`Authen/Microsoft/setup-microsoft-auth.bat`**
+   2. enter the application URL
+   3. log in with Microsoft (including MFA) in the browser that opens
+   4. wait until the application has fully loaded
+   5. go back to the script window and press **Enter**
 
-### `form`
+   The profile is saved in `Authen/Microsoft/profile/` (git-ignored). Without it, the recorder stops with *"Microsoft profile is not ready"*.
+3. **Record** one test case — `run-codegen.bat` opens the app already signed in ([section 3](#3-record-the-flow-with-codegen))
+4. **Split** the recording ([section 4](#4-split-the-recording-into-_flows-and-_locators)). In SETUP keep only the steps *inside* the app after sign-in (e.g. choosing a branch) — the Microsoft sign-in itself is not recorded.
+5. **Setup 3 → Setup 4 → Setup 5** ([sections 5–7](#5-setup-3--locators))
+6. **Run** — `run-local.bat` only ([section 8](#8-run-the-tests))
 
-Each `form` access flow has its own login script: **`Test-Local/<Project>/<AccessFlow>/_login/login.setup.ts`**. Setup 1 creates it from a template (`Authen/Form-Login/login.setup.template.ts`).
+When the session expires: repeat step 2.
 
-1. Open `_login/login.setup.ts`, delete the `throw new Error(...)` line at the top, and fill in the four TODOs:
-   1. the login page URL
-   2. the login form's fields and submit button — record them with `run-codegen.bat` → **Record login and test flow**, keep the locators, and use `username` / `password` as the values
-   3. a wait that proves you are logged in (a URL or an element)
-   4. how the app keeps the session: `saveStorageState` for cookies / localStorage (most apps), `saveSessionStorage` for sessionStorage-based apps
-2. Double-click **`Authen/Form-Login/setup-form-auth.bat`** → pick the access flow → enter username and password (the password is hidden, and neither is written to disk)
-3. The session is saved to `_login/session-storage.json` (git-ignored)
+### Path C — Form login (`form`)
 
-Never write credentials into `login.setup.ts`. Repeat step 2 when the session expires.
+Each `form` access flow has its own login script. You never write it by hand: you **record the login once** and Setup 2 generates it.
 
-Details (credentials, session lifetime): [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md).
+```
+Test-Local/<Project>/<AccessFlow>/_login/
+├── login-locators.ts      created by Setup 1 — paste the recorded login here (git-ignored)
+├── login.setup.ts         created by Setup 2 — the login script (committed, no credentials)
+└── session-storage.json   created by setup-form-auth.bat — the saved session (git-ignored)
+```
+
+1. **Setup 1** with AuthType `form` — creates `_login/login-locators.ts`
+2. **Record login and test case together** — `run-codegen.bat` → your project / access flow → **Record login and test flow**. Log in (plus any step needed to enter the app, e.g. choose a company, close a popup), then perform one test case. Keep the recording open.
+3. **Paste the login part** — from `page.goto(...)` up to the point you are inside the app — into `_login/login-locators.ts`, below the comments.
+4. **Setup 2** — `Ctrl+Shift+P` → **Run Task** → **Setup 2 — Form login** → project / access flow → where the app keeps its login ([how to choose](#cookies-or-sessionstorage)).
+   It writes `login.setup.ts` with the username and password replaced by variables, then **clears `login-locators.ts`**, so the real values do not stay on disk.
+5. **Save the session** — double-click **`Authen/Form-Login/setup-form-auth.bat`** → pick the access flow → type username and password in the terminal (the password is hidden and never written to disk). The browser logs in by itself and saves `session-storage.json`.
+6. **Split the rest of the recording** ([section 4](#4-split-the-recording-into-_flows-and-_locators)). In SETUP, **remove the login form lines** (email, password, the form's submit button) — the saved session skips the form. A "Login" button on the site that leads to the form stays.
+
+   ```typescript
+   // === SETUP ===
+   await page.goto('https://app.example.com/');
+   await page.getByRole('button', { name: 'Login' }).click();          // keep — button on the site
+   // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // remove — login form
+   // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // remove — login form
+   // await page.getByRole('button', { name: 'Sign in' }).click();     // remove — login form
+   ```
+7. **Setup 3 → Setup 4 → Setup 5** ([sections 5–7](#5-setup-3--locators))
+8. **Run** — `run-local.bat` only ([section 8](#8-run-the-tests))
+
+Steps 2–4 are done once per app (again only if the login page changes). When the session expires: repeat step 5.
+
+`login-locators.ts` is git-ignored, so a pasted password is never committed even if you stop halfway. `setup-form-auth.bat` refuses to run until Setup 2 has generated `login.setup.ts`.
+
+#### Cookies or sessionStorage?
+
+Setup 2 asks where the app keeps its login:
+
+| Choose | When |
+|---|---|
+| **cookies / localStorage** | most apps — **choose this if unsure** |
+| **sessionStorage** | apps that keep the login only for the browser tab |
+
+If you choose wrong, step 5 tells you: *"Form Login succeeded, but storageState is empty … use saveSessionStorage() instead"*. Then paste the login into `login-locators.ts` again (Setup 2 cleared it) and run Setup 2 with **sessionStorage**.
+
+To check beforehand: log in to the app in a normal browser → `F12` → **Application** tab →
+- **Cookies** has entries named like `session`, `token`, `auth` → cookies
+- **Cookies** is empty but **Session Storage** has data → sessionStorage
+
+Known examples: Nebula (NextAuth) = cookies; WEF Dealer = sessionStorage.
+
+More detail: [`FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](FORM_LOGIN_SESSION_STORAGE_GUIDE.md).
 
 ---
 
@@ -244,21 +301,7 @@ You can paste the raw locator lines into `_locators` and let **Setup 3** convert
 - If the page shows a loading overlay, add `await waitForLoading(page);` yourself where needed. It is never added automatically.
 - **Never put passwords in `_flows`.** It is committed to git and copied into the spec.
 
-**About login steps in SETUP**
-
-- `microsoft`: the runner uses the saved Microsoft profile. Keep only the steps *inside* the app after sign-in (e.g. choosing a branch).
-- `form`: the runner loads the saved session, so the **login form never appears**. Keep every step **except the ones on the login form itself** (email, password, the form's submit button). A "Login" button on the site that leads to the form stays — with a saved session it takes you straight into the app.
-
-  ```typescript
-  // === SETUP ===
-  await page.goto('https://app.example.com/');
-  await page.getByRole('button', { name: 'Login' }).click();          // keep — button on the site
-  // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // remove — login form
-  // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // remove — login form
-  // await page.getByRole('button', { name: 'Sign in' }).click();     // remove — login form
-  ```
-
-  If the session expires, tests stop at the login form. Run `setup-form-auth.bat` again.
+**Login steps in SETUP:** see [Path B, step 4](#path-b--microsoft-login-microsoft) (Microsoft) and [Path C, step 6](#path-c--form-login-form) (form).
 
 ### Example — print buttons (nothing after DATA)
 
@@ -442,9 +485,12 @@ Then use the new action in the CSV → **Setup 7** → run.
 |---|---|---|
 | Tasks do not appear in Run Task | VS Code opened the wrong folder | open the `ttest-playwright` folder itself |
 | `node` is not recognized | Node not on PATH for VS Code | restart VS Code; check `node --version` |
-| Recorder: *Microsoft profile is not ready* | login setup not done | [Login setup](#microsoft) |
+| Recorder: *Microsoft profile is not ready* | Microsoft login not saved | [Path B, step 2](#path-b--microsoft-login-microsoft) |
 | Test fails at the first step (login page) | login session expired or not loaded | redo login setup; run via `run-local.bat` |
-| *strict mode violation* | several elements match | add `.first()` to that locator, or use a longer button name |
+| *strict mode violation* | several elements match — often other buttons whose name *contains* the value (e.g. table rows showing the same status) | narrow the locator to its container (`page.getByRole('dialog').getByRole('button', …)`), match the exact name (`{ name: value, exact: true }`), or add `.first()` only when all matches are the same button |
+| *Login setup file was not found* | `login.setup.ts` not generated yet | paste the recorded login into `_login/login-locators.ts` → Setup 2 |
+| *storageState is empty* (form login) | the app keeps its login in sessionStorage | paste again → Setup 2 with **sessionStorage** ([details](#cookies-or-sessionstorage)) |
+| Setup 2: *Cannot tell which field is the password* | the pasted code has extra fields | keep only the login form lines in `login-locators.ts` |
 | Date button not found | the date in the CSV has passed | update the CSV → Setup 7 |
 | Slot / time button disabled | a previous run already booked it | reset the app data before running |
 | `�` or `à¸…` in files | saved in the wrong encoding (Excel, PowerShell) | re-save as UTF-8 in VS Code |
@@ -472,6 +518,21 @@ Read: #file:prompts/setup-1-create-project.md
 - AccessFlow: <access-flow>
 - Module: <module>
 - AuthType: <none | microsoft | form>
+```
+
+### Setup 2 — Form login
+
+(Faster as a Task.)
+
+```markdown
+### Setup 2 — Form login
+
+Read: #file:prompts/setup-2-form-login.md
+
+**Location**
+- Project: <project>
+- AccessFlow: <access-flow>
+- Session: <cookies | sessionStorage>
 ```
 
 ### Setup 3 — Locators

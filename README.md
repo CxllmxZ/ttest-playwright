@@ -84,7 +84,7 @@ The full vocabulary is in [`AGENTS.md`](AGENTS.md) Section 9.
 ## Install
 
 ```bash
-git clone https://github.com/CxllmxZ/ttest-playwright.git
+git clone https://github.com/<owner>/ttest-playwright.git
 cd ttest-playwright
 pnpm install
 pnpm exec playwright install
@@ -101,13 +101,12 @@ Full step-by-step guide: [English](doc/GUIDE.md) · [ภาษาไทย](doc/
 | Setup | What | How |
 |---|---|---|
 | **1** Create-Project | project + access flow + module + auth config | ⚡ Task |
+| **2** Form login | recorded login pasted in `_login/login-locators.ts` → `_login/login.setup.ts` (form login only) | ⚡ Task |
 | **3** Locators | codegen → ordered locator list | AI prompt |
 | **4** Scenarios | `name : value` lines → CSV (appends to an existing CSV) | AI prompt |
 | **5** Create feature | generate the 4 files | ⚡ Task |
 | **6** Extend helper | add a new `\|action` or locator type to one feature | AI prompt |
 | **7** Update TCs | regenerate `data.ts` after CSV/locator changes | ⚡ Task |
-
-There is no Setup 2 (merged into Setup 1).
 
 **⚡ Task** = VS Code → `Ctrl+Shift+P` → **Run Task** → pick the setup → fill in the prompts. No AI involved; takes about a second.
 
@@ -154,10 +153,10 @@ Set per access flow in `Test-Local/<Project>/<AccessFlow>/project.config.json`:
 | `authType` | Setup before running tests |
 |---|---|
 | `none` | nothing |
-| `microsoft` | `Authen/Microsoft/setup-microsoft-auth.bat` — log in once, session is saved |
-| `form` | see [`doc/FORM_LOGIN_SESSION_STORAGE_GUIDE.md`](doc/FORM_LOGIN_SESSION_STORAGE_GUIDE.md) |
+| `microsoft` | `Authen/Microsoft/setup-microsoft-auth.bat` — log in once, session is saved ([guide](doc/GUIDE.md#path-b--microsoft-login-microsoft)) |
+| `form` | record the login once → **Setup 2** → `Authen/Form-Login/setup-form-auth.bat` ([guide](doc/GUIDE.md#path-c--form-login-form)) |
 
-Session files, browser profiles and `.env` are git-ignored.
+Session files, browser profiles, `.env` and the login scratch file (`_login/login-locators.ts`) are git-ignored.
 
 ---
 
@@ -168,7 +167,7 @@ ttest-playwright/
 ├── AGENTS.md              rules for AI agents (also the full reference)
 ├── doc/                   user guide (GUIDE.md, GUIDE.th.md) and login guides
 ├── prompts/               rule files for AI-driven setups
-├── scripts/               generators: create-project.mjs, setup-5.mjs
+├── scripts/               generators: create-project.mjs, form-login.mjs, setup-5.mjs
 ├── .vscode/tasks.json     Setup 1 / 5 / 7 as VS Code Tasks
 ├── Authen/                login helpers (Microsoft, form)
 ├── Test-Local/            tests run through the local runner

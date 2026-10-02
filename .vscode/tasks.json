@@ -28,6 +28,30 @@
       "problemMatcher": []
     },
     {
+      "label": "Setup 2 — Form login (convert recorded login)",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/scripts/form-login.mjs",
+        "${input:project}",
+        "${input:accessFlow}",
+        "${input:sessionKind}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "TTEST_LANG": ""
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true,
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Setup 5 — Generate feature",
       "type": "process",
       "command": "node",
@@ -116,6 +140,21 @@
         {
           "label": "form — email/password form",
           "value": "form"
+        }
+      ]
+    },
+    {
+      "id": "sessionKind",
+      "type": "pickString",
+      "description": "Where does the app keep its login?",
+      "options": [
+        {
+          "label": "cookies / localStorage (most apps)",
+          "value": ""
+        },
+        {
+          "label": "sessionStorage",
+          "value": "--session-storage"
         }
       ]
     }
