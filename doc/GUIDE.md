@@ -162,16 +162,7 @@ Test-Local/<Project>/<AccessFlow>/_login/
 4. **Setup 2** — `Ctrl+Shift+P` → **Run Task** → **Setup 2 — Form login** → project / access flow → where the app keeps its login ([how to choose](#cookies-or-sessionstorage)).
    It writes `login.setup.ts` with the username and password replaced by variables, then **clears `login-locators.ts`**, so the real values do not stay on disk.
 5. **Save the session** — double-click **`Authen/Form-Login/setup-form-auth.bat`** → pick the access flow → type username and password in the terminal (the password is hidden and never written to disk). The browser logs in by itself and saves `session-storage.json`.
-6. **Split the rest of the recording** ([section 4](#4-split-the-recording-into-_flows-and-_locators)). In SETUP, **remove the login form lines** (email, password, the form's submit button) — the saved session skips the form. A "Login" button on the site that leads to the form stays.
-
-   ```typescript
-   // === SETUP ===
-   await page.goto('https://app.example.com/');
-   await page.getByRole('button', { name: 'Login' }).click();          // keep — button on the site
-   // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // remove — login form
-   // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // remove — login form
-   // await page.getByRole('button', { name: 'Sign in' }).click();     // remove — login form
-   ```
+6. **Split the rest of the recording** ([section 4](#4-split-the-recording-into-_flows-and-_locators)). The saved session skips the login form, so SETUP simply opens the app page where the test starts — drop the recorded login lines. Only if the app has an entry page where you must click to get in (e.g. an "Enter" or "Login" button that leads straight into the app), keep that click in SETUP.
 7. **Setup 3 → Setup 4 → Setup 5** ([sections 5–7](#5-setup-3--locators))
 8. **Run** — `run-local.bat` only ([section 8](#8-run-the-tests))
 

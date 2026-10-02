@@ -162,16 +162,7 @@ Test-Local/<Project>/<AccessFlow>/_login/
 4. **Setup 2** — `Ctrl+Shift+P` → **Run Task** → **Setup 2 — Form login** → เลือกโปรเจค / access flow → เลือกว่าแอปเก็บ login แบบไหน ([วิธีเลือก](#cookies-หรือ-sessionstorage))
    สคริปต์จะสร้าง `login.setup.ts` โดยเปลี่ยน username กับรหัสผ่านเป็นตัวแปร แล้ว**ล้าง `login-locators.ts`** ค่าจริงจึงไม่เหลือในเครื่อง
 5. **บันทึก session** — ดับเบิลคลิก **`Authen/Form-Login/setup-form-auth.bat`** → เลือก access flow → พิมพ์ username และรหัสผ่านใน terminal (รหัสผ่านถูกซ่อน และไม่ถูกบันทึกลงไฟล์) เบราว์เซอร์จะ login เอง แล้วบันทึก `session-storage.json`
-6. **แบ่งโค้ดส่วนที่เหลือ** ([หัวข้อ 4](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)) ใน SETUP **ลบบรรทัดของฟอร์ม login ออก** (ช่อง email, รหัสผ่าน, ปุ่มยืนยันของฟอร์ม) เพราะ session ที่บันทึกไว้ทำให้ฟอร์มไม่ขึ้นมา ส่วนปุ่ม "Login" บนหน้าเว็บที่กดเพื่อไปหน้าฟอร์ม ให้เก็บไว้
-
-   ```typescript
-   // === SETUP ===
-   await page.goto('https://app.example.com/');
-   await page.getByRole('button', { name: 'Login' }).click();          // เก็บ — ปุ่มบนหน้าเว็บ
-   // await page.getByRole('textbox', { name: 'Email' }).fill('…');    // ลบ — อยู่ในฟอร์ม login
-   // await page.getByRole('textbox', { name: 'Password' }).fill('…'); // ลบ — อยู่ในฟอร์ม login
-   // await page.getByRole('button', { name: 'Sign in' }).click();     // ลบ — อยู่ในฟอร์ม login
-   ```
+6. **แบ่งโค้ดส่วนที่เหลือ** ([หัวข้อ 4](#4-แบ่งโค้ดที่อัดได้ลง-_flows-และ-_locators)) session ที่บันทึกไว้ทำให้ไม่ต้องผ่านฟอร์ม login SETUP จึงแค่เปิดหน้าในแอปที่เทสเริ่ม ตัดบรรทัด login ที่อัดมาทิ้งได้เลย ยกเว้นแอปมีหน้าแรกที่ต้องกดเพื่อเข้าแอป (เช่น ปุ่ม "เข้าสู่ระบบ" ที่พาเข้าแอปทันที) ให้เก็บการกดนั้นไว้ใน SETUP
 7. **Setup 3 → Setup 4 → Setup 5** ([หัวข้อ 5–7](#5-setup-3--locators))
 8. **รันเทส** — `run-local.bat` เท่านั้น ([หัวข้อ 8](#8-รันเทส))
 
