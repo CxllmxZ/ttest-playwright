@@ -101,6 +101,18 @@ Execute in order.
 
    Example: `ยืนยันการจอง →` / `Confirm booking →` is clicked after DATA in `_flows` → skipped here.
 
+6b. **Merge dropdown selections.** A click on a dropdown followed by a click on the chosen option is **one** slot — the option is the CSV value.
+
+    Dropdown line: locator contains `getByRole('combobox'` or `ng-select`.
+    Option line (the KEEP line right after it), any of:
+    - `getByRole('option', …)`
+    - `getByLabel('X').getByText('X')` or `getByText('X')`
+    - `getByRole('listbox')…`
+
+    → Keep the dropdown line, **drop the option line**, and list it in the report as "merged into dropdown — put `X` in the CSV". The helper opens the dropdown and picks `getByRole('option', { name: <CSV value> })`.
+
+    `X.selectOption('…')` on a native `<select>` is a single line: keep it as a static locator (the value is dropped like any other action).
+
 7. Strip the trailing action from each remaining line to get the locator expression:
    `await X.click()` → `X`, `await X.fill('v')` → `X`, and so on.
 
@@ -144,6 +156,7 @@ Execute in order.
     - Format A (converted) / Format B (no change / fixed: …)
     - `N locators (P parametric, S static)` — count in the conversation; do not run tools
     - Skipped fixed steps (step 6), if any
+    - Merged dropdown options (step 6b), with the option text to use in the CSV
     - Reminder: CSV items for parametric positions are **button names**; `|click` is only for static buttons
     - Next: **Setup 4**
 
@@ -207,6 +220,23 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
 
 Report: `Format A (converted) — 5 locators (3 parametric, 2 static). Skipped as fixed steps (already in _flows): Book now →, Confirm booking →, Back to home.`
 
+## Example — dropdown
+
+```typescript
+  await page.getByRole('button', { name: '17 Sep 11:30 Nopparut' }).click();
+  await page.getByRole('combobox', { name: 'Change status' }).click();
+  await page.getByLabel('Cancelled').getByText('Cancelled').click();
+```
+→
+```typescript
+  (page, value) => page.getByRole('button', { name: value }),
+  (page) => page.getByRole('combobox', { name: 'Change status' }),
+```
+
+Report: `Merged into dropdown: Cancelled — put the status (e.g. Cancelled, No-show) in the CSV for position 2.`
+
+CSV: `"17 Sep 11:30,Cancelled"` — position 1 picks the booking row, position 2 picks the status.
+
 ## Example — repeated buttons
 
 ```typescript
@@ -231,4 +261,5 @@ Report: `Format A (converted) — 5 locators (3 parametric, 2 static). Skipped a
 
 ## Changelog
 
+- 2026-10-02 (v10.1) — Merges "dropdown click + option click" into one dropdown slot (step 6b); the option becomes the CSV value.
 - 2026-09-28 (v10) — Skips lines already present in `_flows` (fixed steps) instead of turning every click into a locator. Format B: removes default parameter values and fixes the array type. `expect(` lines skipped. Examples use neutral data. Report in the user's language.

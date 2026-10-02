@@ -6,7 +6,7 @@ export const statusTestCases: StatusTestCase[] = [
     testCaseId: 'TC001',
     scenario: 'Change Status',
     values: [
-      '1 Oct 12:00 test นวดไทย ฿350', '|click', '|click',
+      '1 Oct 12:00 test นวดไทย ฿350', 'ยกเลิก',
     ],
   },
 ];

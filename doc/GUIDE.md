@@ -317,6 +317,12 @@ export const printLocators: Array<(page: Page, value?: string) => Locator> = [
 ];
 ```
 
+**Dropdowns are one slot.** Codegen records two clicks — the dropdown, then the option. Keep only the dropdown in `_locators`; the option is the CSV value (Setup 3 does this for you):
+
+```typescript
+(page) => page.getByRole('combobox', { name: 'Change status' }),   // CSV: Cancelled / No-show / …
+```
+
 Keep `.first()` when the page has several buttons with the same name (e.g. one per table row). Without it the test fails with *"strict mode violation"*.
 
 ### Locator types
@@ -348,6 +354,7 @@ Converts raw locator lines in `_locators/<feature>.ts` into the ordered list, an
 - the order matches the order you want in the CSV
 - buttons that change per test case are parametric `(page, value) =>`
 - `.first()` / `.nth()` were kept where needed
+- a dropdown is **one** slot: the click on the dropdown stays, the click on the chosen option is removed — the option text goes into the CSV
 - no comments in the file (the meaning of each position lives in the CSV)
 
 ---
@@ -371,7 +378,7 @@ The value is a comma-separated list. **Item N goes to locator N.**
 |---|---|---|
 | textbox | text to type | `test` |
 | dropdown | option to pick | `New job` |
-| parametric button | button name (or a unique part of it) | `Thai massage` |
+| parametric button | button name (or a unique part of it) — not a word other rows share, like a status | `Thai massage` |
 | fixed button | `\|click` | `\|click` |
 | not used in this test case | nothing | `,,` |
 
