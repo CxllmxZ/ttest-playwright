@@ -1,6 +1,6 @@
 # Setup 6 — Extend Helper (Rules)
 
-Rules file for AI. User pastes a minimal invocation (see `doc/AGENT_PROMPTS.md`).
+Rules file for AI. User pastes a minimal invocation (see `doc/GUIDE.md` Appendix A).
 
 Adds ONE new capability to ONE feature's `helper.ts`: a new `|action`, or a new static locator type. This is judgment work — you design the code, the user reviews it.
 
@@ -71,11 +71,9 @@ async function applyItem(page: Page, index: number, item: string): Promise<void>
 
   if (/getByRole\(\s*['"]textbox['"]/.test(locatorCode)) {
     ...
-  } else if (/getByRole\(\s*['"]combobox['"]/.test(locatorCode) || locatorCode.includes('ng-select')) {
-    ...
   // ← (B) new locator branch goes here, before the final else
   } else {
-    throw new Error(`Cannot dispatch text value ...`);
+    await selectOption(page, target, item);   // everything else = dropdown
   }
 }
 ```

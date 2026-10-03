@@ -21,6 +21,13 @@ $microsoftProfilePath = Join-Path `
     $repoRoot `
     "Authen\Microsoft\profile"
 
+# Codegen loads the saved Microsoft session from state.json (same file the tests use).
+# The persistent profile alone loses Microsoft session cookies when the browser closes
+# (e.g. "Stay signed in?" = No, or disabled by the organization).
+$microsoftStatePath = Join-Path `
+    $repoRoot `
+    "Authen\Microsoft\state.json"
+
 $formCodegenLauncher = Join-Path `
     $repoRoot `
     "Authen\Form-Login\form-codegen.cjs"
@@ -192,16 +199,12 @@ function Get-AccessFlowConfiguration {
         }
 
         "microsoft" {
-            $localStatePath = Join-Path `
-                $microsoftProfilePath `
-                "Local State"
-
-            if (-not (Test-Path $localStatePath)) {
+            if (-not (Test-Path $microsoftStatePath)) {
                 $message = @(
                     "Microsoft profile is not ready."
                     ""
                     "Expected:"
-                    $microsoftProfilePath
+                    $microsoftStatePath
                     ""
                     "Please run:"
                     "Authen\Microsoft\setup-microsoft-auth.bat"
@@ -625,10 +628,10 @@ while ($true) {
     try {
         switch ($accessConfiguration.AuthType) {
             "microsoft" {
-                Write-Host "Using Microsoft profile:" `
+                Write-Host "Using Microsoft session:" `
                     -ForegroundColor Green
 
-                Write-Host $microsoftProfilePath `
+                Write-Host $microsoftStatePath `
                     -ForegroundColor DarkGray
 
                 Write-Host ""
@@ -638,7 +641,7 @@ while ($true) {
                     "playwright"
                     "codegen"
                     "--target=playwright-test"
-                    "--user-data-dir=$microsoftProfilePath"
+                    "--load-storage=$microsoftStatePath"
                     $targetUrl
                 )
 

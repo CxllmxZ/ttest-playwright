@@ -2,7 +2,7 @@
 
 Rules file for AI. User pastes a minimal invocation (see `doc/GUIDE.md` Appendix A).
 
-**Purpose:** Turn `_locators/<feature>.ts` into the framework's ordered locator array. Buttons with a name become **parametric** (the CSV supplies which button); everything else stays **static**.
+**Purpose:** Turn `_locators/<feature>.ts` into the framework's ordered locator array. Clickable choices with a name — buttons, links, tabs, radios, checkboxes, switches, menu items — become **parametric** (the CSV supplies which one); everything else stays **static**.
 
 Only the steps that **change per test case** belong in `_locators`. Steps that every test case does the same way live in `_flows/<feature>.ts` and are skipped here.
 
@@ -120,11 +120,17 @@ Execute in order.
 
    | Locator | Output |
    |---|---|
-   | `getByRole('button'` **with** `name:` | **parametric:** `(page, value) => page.getByRole('button', { name: value })<chain>` — the recorded name is discarded; `<chain>` = everything after `getByRole(...)` (e.g. `.first()`, `.nth(1)`), kept exactly |
-   | `getByRole('button'` **without** `name:` | **static:** `(page) => <expression>` — kept exactly; CSV uses `\|click` |
-   | anything else (textbox, combobox, link, `page.locator(…)`) | **static:** `(page) => <expression>` — kept exactly |
+   **Choice roles:** `button`, `link`, `tab`, `radio`, `checkbox`, `switch`, `menuitem`, `menuitemradio`, `menuitemcheckbox`, `treeitem`
+
+   | Locator | Output |
+   |---|---|
+   | `getByRole('<choice role>'` **with** `name:` | **parametric:** `(page, value) => page.getByRole('<role>', { name: value })<chain>` — keep the role, discard the recorded name; `<chain>` = everything after `getByRole(...)` (e.g. `.first()`, `.nth(1)`), kept exactly; drop `exact: true` |
+   | `getByRole('<choice role>'` **without** `name:` | **static:** `(page) => <expression>` — kept exactly; CSV uses `\|click` |
+   | anything else (textbox, combobox, `getByText`, `getByPlaceholder`, `getByLabel`, `getByTestId`, `page.locator(…)`) | **static:** `(page) => <expression>` — kept exactly |
 
    A prefix before `getByRole` (e.g. `page.locator('#dialog').getByRole('button', { name: 'OK' })`) is kept: `(page, value) => page.locator('#dialog').getByRole('button', { name: value })`.
+
+   A choice that is the same in every test case should not reach this step — it is a fixed step in `_flows` and was skipped in step 6.
 
 9. Overwrite `_locators/<feature>.ts`:
 
@@ -157,7 +163,7 @@ Execute in order.
     - `N locators (P parametric, S static)` — count in the conversation; do not run tools
     - Skipped fixed steps (step 6), if any
     - Merged dropdown options (step 6b), with the option text to use in the CSV
-    - Reminder: CSV items for parametric positions are **button names**; `|click` is only for static buttons
+    - Reminder: CSV items for parametric positions are the **names** of the button / link / tab / radio … to click; `|click` is only for static positions
     - Next: **Setup 4**
 
 ---
@@ -237,6 +243,20 @@ Report: `Merged into dropdown: Cancelled — put the status (e.g. Cancelled, No-
 
 CSV: `"17 Sep 11:30,Cancelled"` — position 1 picks the booking row, position 2 picks the status.
 
+## Example — other choice roles
+
+```typescript
+  await page.getByRole('tab', { name: 'Pending' }).click();
+  await page.getByRole('radio', { name: 'Credit card' }).check();
+```
+→
+```typescript
+  (page, value) => page.getByRole('tab', { name: value }),
+  (page, value) => page.getByRole('radio', { name: value }),
+```
+
+CSV: `"Completed,Bank transfer"`. A parametric position is always **clicked**, which selects a radio or tab and toggles a checkbox.
+
 ## Example — repeated buttons
 
 ```typescript
@@ -255,11 +275,12 @@ CSV: `"17 Sep 11:30,Cancelled"` — position 1 picks the booking row, position 2
 
 ## Notes
 
-- **Why named buttons are parametric:** a test often picks one of several buttons (1 of 8 services). The CSV names the button, so one locator slot serves every choice. A button that is the same in every test case is written by its name in the CSV (e.g. `Next`), or — better — kept in `_flows` as a fixed step.
+- **Why named choices are parametric:** a test often picks one of several buttons, tabs or radios (1 of 8 services, 1 of 3 payment methods). The CSV names the button, so one locator slot serves every choice. A button that is the same in every test case is written by its name in the CSV (e.g. `Next`), or — better — kept in `_flows` as a fixed step.
 - **Re-running** is safe: Format B is left unchanged except for the fixes in step 10.
 - **File names:** `_flows`, `_locators`, `_scenarios` and the feature folder must use exactly the same feature name, including letter case.
 
 ## Changelog
 
+- 2026-10-02 (v10.2) — Parametric for all named choice roles (link, tab, radio, checkbox, switch, menu items, tree items), not only buttons.
 - 2026-10-02 (v10.1) — Merges "dropdown click + option click" into one dropdown slot (step 6b); the option becomes the CSV value.
 - 2026-09-28 (v10) — Skips lines already present in `_flows` (fixed steps) instead of turning every click into a locator. Format B: removes default parameter values and fixes the array type. `expect(` lines skipped. Examples use neutral data. Report in the user's language.

@@ -206,6 +206,36 @@ The recorder does not save files. You paste the code in the next step.
 
 **Record one test case only.** The other test cases come from the CSV later.
 
+**Dropdowns:** click the dropdown's text (e.g. `-- Select brand --`), then the option. If it does not open on the first click and you click around, that is fine — Setup 5 keeps only the click right before the option and drops the extra attempts (`locator('div').nth(3)`, `.ng-input`, …), and tells you which lines it dropped. It also warns about any remaining position-only locators so you can replace them.
+
+
+### How codegen chooses a locator
+
+Codegen looks at the element you clicked and picks the most reliable locator it can make **unique** on the page. Ranked from best to worst (from Playwright's source):
+
+| Rank | Locator | Comes from |
+|---|---|---|
+| 1 | `getByTestId('…')` | `data-testid` (also `data-test-id`, `data-test`) |
+| 2 | `getByRole('button', { name: '…' })` | role + accessible name (text, `aria-label`, `<label>`) |
+| 3 | `getByPlaceholder('…')` | `placeholder` |
+| 4 | `getByLabel('…')` | a `<label>` linked to the field |
+| 5 | `getByAltText('…')` | image `alt` |
+| 6 | `getByText('…')` | visible text |
+| 7 | `getByTitle('…')` | `title` |
+| 8 | `locator('#id')` | `id` |
+| 9 | `getByRole('textbox')` | role without a name |
+| 10 | `locator('input[name="…"]')` | type + `name` |
+| 11 | `locator('div')` | tag name only |
+| last | long CSS path | page structure |
+
+When a choice matches several elements it adds `.nth(n)` / `.first()` or chains it inside a container. So `locator('div').nth(3)` means **you clicked an element with nothing to identify it** — no role, name, text or id.
+
+The generated tests run with any of these (the helper checks what the element really is on the page). What differs is how long they keep working: ranks 1–7 survive layout changes; ranks 8–last break easily. Setup 5 warns about position-only and structural locators.
+
+**See it before you click:** in the Playwright Inspector press **Pick locator** and hover — it shows the locator codegen would choose. Or press `F12` → **Elements** → **Accessibility** pane to see an element's role and name.
+
+**If you own the app**, give important elements a `data-testid` or `aria-label`. Codegen then picks rank 1 or 2 automatically, wherever you click.
+
 ---
 
 ## 4. Split the recording into `_flows` and `_locators`
@@ -330,7 +360,7 @@ Keep `.first()` when the page has several buttons with the same name (e.g. one p
 | Type | Written as | CSV value | Use for |
 |---|---|---|---|
 | **Static** | `(page) => …` | text to type, option to pick, or `\|click` | textboxes, dropdowns, fixed buttons |
-| **Parametric** | `(page, value) => …` | the name of the button to click | a button chosen differently per test case |
+| **Parametric** | `(page, value) => …` | the name of the element to click | a button, link, tab, radio, checkbox or menu item chosen differently per test case |
 
 Parametric locators must have exactly two parameters and **no default value** (`(page, value = '') =>` breaks them).
 
@@ -352,7 +382,7 @@ Converts raw locator lines in `_locators/<feature>.ts` into the ordered list, an
 
 **Check the result:**
 - the order matches the order you want in the CSV
-- buttons that change per test case are parametric `(page, value) =>`
+- buttons, links, tabs, radios … that change per test case are parametric `(page, value) =>`
 - `.first()` / `.nth()` were kept where needed
 - a dropdown is **one** slot: the click on the dropdown stays, the click on the chosen option is removed — the option text goes into the CSV
 - no comments in the file (the meaning of each position lives in the CSV)

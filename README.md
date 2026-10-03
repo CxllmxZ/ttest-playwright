@@ -61,8 +61,8 @@ TC002,Bookings,Bookings,"Book without phone","Thai massage,Thursday 1 October,13
 
 | CSV item | Result |
 |---|---|
-| text at a textbox | fill |
-| text at a combobox | pick option |
+| text at a text field | fill |
+| text at a dropdown or `<select>` | pick the option |
 | text at a parametric button | click the button with that name |
 | `\|click` at a fixed button | click |
 | empty | skip |

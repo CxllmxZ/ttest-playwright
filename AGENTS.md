@@ -312,7 +312,7 @@ export const bookingsLocators: Array<(page: Page, value?: string) => Locator> = 
 
 | Shape | Signature | When |
 |---|---|---|
-| **Parametric** | `(page, value) => page.getByRole('button', { name: value })` | Button chosen per TC (e.g., 1 of 8 services) |
+| **Parametric** | `(page, value) => page.getByRole('<role>', { name: value })` | Named choice picked per TC — roles `button`, `link`, `tab`, `radio`, `checkbox`, `switch`, `menuitem*`, `treeitem` (e.g., 1 of 8 services) |
 | **Static** | `(page) => ...` | Textbox, combobox, link, fixed/positional button (`.nth(2)`) |
 
 **Parametric contract:** exactly 2 parameters, **no default value**. `(page, value = '') => ...` is forbidden — it makes `fn.length` return 1 and breaks dispatch.
@@ -423,12 +423,15 @@ _locators/<feature>.ts   ──(runtime import)─►  helper.ts   (import '../_
 | `|click` | static | `locator.click()` |
 | `|click` | parametric | **Error** — give a button name instead |
 | text | parametric | `locatorFn(page, text).click()` — click element named `text` |
-| text | static textbox | `.fill(text)` |
-| text | static combobox / ng-select | `.click()` then click `option` named `text` |
-| text | other static | **Error** — use `|click` or leave empty |
+| text | static → element is a text field (`input` text/email/date/…, `textarea`, `contenteditable`, role textbox) | `.fill(text)` |
+| text | static → native `<select>` | `.selectOption({ label: text })` |
+| text | static → dropdown (role `combobox`, `aria-haspopup="listbox"`, button with `aria-expanded`, or a div/span opener such as `.ng-input` / placeholder text) | `selectOption(page, locator, text)` — open it, then click `option` named `text` |
+| text | static → checkbox / radio / button / file input | **Error** — use `\|click`, or add an action via Setup 6 |
 | `|<other>` | any | **Error** — Unknown action (add via Setup 6) |
 
-Shape is detected at runtime by `locatorFn.length` (2 = parametric, 1 = static). Static type is detected from the locator source: `getByRole('textbox'`, `getByRole('combobox'`, or `ng-select`.
+Shape is detected at runtime by `locatorFn.length` (2 = parametric, 1 = static). For static locators the helper inspects the **element on the page** (`fieldKind()`), not the locator text, so `getByRole('textbox')`, `getByPlaceholder`, `getByLabel`, `#id` all work for text fields, and `combobox`, `.ng-input`, placeholder text all work for dropdowns.
+
+**Dropdowns in `_flows`:** Setup 5 replaces a recorded "opener click + option click" pair (`getByRole('option', { name })` or `getByLabel('X').getByText('X')`) with `selectOption(page, <opener>, '<option>')`, and drops position-only clicks right before the opener (`locator('div'|'span').nth/first`, `.ng-input`, `combobox`) as repeated attempts to open the same dropdown. Each change is reported. Setup 5 also warns about position-only locators (`locator('div').nth(3)`, generated ids) in `_flows` and `_locators`.
 
 ### Supported actions
 

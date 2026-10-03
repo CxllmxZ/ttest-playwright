@@ -79,8 +79,10 @@ Write-Host ""
 Write-Host "Instructions:" -ForegroundColor Cyan
 Write-Host "1. Complete Microsoft sign-in manually."
 Write-Host "2. Complete MFA or approval if required."
-Write-Host "3. Wait until the application opens successfully."
-Write-Host "4. Close the Chromium window."
+Write-Host "3. If asked 'Stay signed in?', choose YES."
+Write-Host "4. Wait until the application opens successfully."
+Write-Host "5. Come back to THIS window and press Enter."
+Write-Host "   Do NOT close the browser yourself." -ForegroundColor Yellow
 Write-Host ""
 
 & node.exe $profileLauncher $targetUrl

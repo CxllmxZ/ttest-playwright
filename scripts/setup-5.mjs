@@ -251,6 +251,9 @@ function readFlows(file) {
     setup,
     pre,
     post,
+    // 1-based line number of the first line of each section (for messages)
+    lineOf: { setup: iS + 2, pre: iP + 2, post: iD + 2 },
+    allLines: lines,
     gotoUrl: goto ? goto[2] : null,
     usesWaitForLoading: /waitForLoading\s*\(/.test(text),
   };
@@ -373,8 +376,6 @@ function readScenarios(file, locators, { actions = ACTIONS, checkKinds = true } 
         } else if (loc.parametric) {
           errors.push(t(`${id} ช่อง ${i + 1}: ช่องนี้เป็นปุ่มแบบเลือกชื่อ ต้องใส่ชื่อปุ่ม ไม่ใช่ ${v}`, `${id} item ${i + 1}: this position is a button chosen by name — give the button name, not ${v}`));
         }
-      } else if (checkKinds && !loc.parametric && loc.kind === 'other') {
-        errors.push(t(`${id} ช่อง ${i + 1}: ช่องนี้กรอกข้อความไม่ได้ (ไม่ใช่ textbox/combobox) → ใช้ |click หรือเว้นว่าง`, `${id} item ${i + 1}: this position cannot take text (not a textbox/combobox) → use |click or leave empty`));
       }
     });
     cases.push({ id, scenario, values });
@@ -398,6 +399,95 @@ function genTypes(P) {
 `;
 }
 
+// ------------------------------------------------- dropdowns & brittle locators
+
+// Option click recorded by codegen: getByRole('option', { name: 'X' }) or getByLabel('X').getByText('X')
+const OPTION_RES = [
+  /^await page\.getByRole\(\s*(['"])option\1\s*,\s*\{\s*name:\s*(['"])((?:\\.|(?!\2).)*)\2\s*(?:,\s*exact:\s*true\s*)?\}\s*\)\.click\(\)\s*;?$/,
+  /^await page\.getByLabel\(\s*(['"])((?:\\.|(?!\1).)*)\1\s*\)\.getByText\(\s*(['"])\2\3\s*\)\.click\(\)\s*;?$/,
+];
+// Clicks that are attempts to open the same dropdown (no identity of their own)
+const DROPDOWN_NOISE = [
+  /^await page\.locator\(\s*(['"])(div|span)\1\s*\)\.(nth\(\d+\)|first\(\)|last\(\))\.click\(\)\s*;?$/,
+  /^await page\.locator\(\s*(['"])[^'"]*ng-(input|select|arrow|placeholder)[^'"]*\1\s*\)(\.(nth\(\d+\)|first\(\)))?\.click\(\)\s*;?$/,
+  /^await page\.getByRole\(\s*(['"])combobox\1[^)]*\)(\.(nth\(\d+\)|first\(\)))?\.click\(\)\s*;?$/,
+];
+const CLICK_RE = /^await (page\..+)\.click\(\)\s*;?$/;
+// Position-only locators: correct when recorded, wrong when the page changes
+const BRITTLE_RES = [
+  // bare tag + position: locator('div').nth(3)
+  /locator\(\s*(['"])(div|span|a|li|p|button|i|svg|td|tr|img)\1\s*\)\.(nth\(\d+\)|first\(\)|last\(\))/,
+  // generated ids: #mat-input-3, #radix-:r5:, #react-select-2-input
+  /['"]#(mat-|radix-|cdk-|react-select-|ext-gen|ember\d|headlessui-)/,
+  // structural CSS paths: two or more ">" steps, or :nth-child / :nth-of-type
+  /locator\(\s*(['"])(?:(?!\1).)*>(?:(?!\1).)*>(?:(?!\1).)*\1/,
+  /:nth-(child|of-type)\(/,
+  // XPath
+  /locator\(\s*(['"])(xpath=|\/\/|\/html)/,
+];
+const BRITTLE_RE = { test: (line) => BRITTLE_RES.some((re) => re.test(line)) };
+
+function optionName(trimmed) {
+  for (const re of OPTION_RES) {
+    const m = trimmed.match(re);
+    if (m) return re === OPTION_RES[0] ? { q: m[2], name: m[3] } : { q: m[1], name: m[2] };
+  }
+  return null;
+}
+
+// Replace "opener click + option click" with selectOption(); drop misclicks right before the opener.
+function collapseDropdowns(lines, firstLineNo, file) {
+  const out = lines.slice();
+  const notes = [];
+  const dropped = new Set();
+  let used = false;
+  for (let i = 0; i < out.length; i++) {
+    const opt = optionName((out[i] || '').trim());
+    if (!opt) continue;
+    let j = i - 1;
+    while (j >= 0 && (out[j] === null || out[j].trim() === '')) j--;
+    if (j < 0) continue;
+    const opener = out[j].trim().match(CLICK_RE);
+    if (!opener || optionName(out[j].trim())) continue;
+    const indent = out[j].match(/^\s*/)[0];
+    const removed = [];
+    let k = j - 1;
+    for (;;) {
+      while (k >= 0 && (out[k] === null || out[k].trim() === '')) k--;
+      if (k < 0 || !DROPDOWN_NOISE.some((re) => re.test(out[k].trim()))) break;
+      removed.push(firstLineNo + k);
+      dropped.add(firstLineNo + k);
+      out[k] = null;
+      k--;
+    }
+    out[j] = `${indent}await selectOption(page, ${opener[1]}, ${opt.q}${opt.name}${opt.q});`;
+    out[i] = null;
+    used = true;
+    notes.push(t(
+      `${file} บรรทัด ${firstLineNo + j}–${firstLineNo + i}: dropdown → selectOption(${opener[1]}, ${opt.q}${opt.name}${opt.q})` +
+        (removed.length ? ` · ตัดคลิกที่พยายามเปิด dropdown ซ้ำ: บรรทัด ${removed.reverse().join(', ')}` : ''),
+      `${file} lines ${firstLineNo + j}–${firstLineNo + i}: dropdown → selectOption(${opener[1]}, ${opt.q}${opt.name}${opt.q})` +
+        (removed.length ? ` · dropped repeated attempts to open it: line ${removed.reverse().join(', ')}` : '')
+    ));
+  }
+  return { lines: out.filter((l) => l !== null), notes, dropped, used };
+}
+
+function brittleWarnings(fileLines, file, skip = new Set()) {
+  const warns = [];
+  fileLines.forEach((line, idx) => {
+    const no = idx + 1;
+    if (skip.has(no) || line.trim().startsWith('//')) return;
+    if (BRITTLE_RE.test(line)) {
+      warns.push(t(
+        `${file} บรรทัด ${no}: ${line.trim()}\n      เลือกจากลำดับ / โครงสร้างหน้า / id อัตโนมัติ — อาจกดผิดตัวเมื่อหน้าเว็บเปลี่ยน → ใช้ locator ที่มีชื่อหรือข้อความ (ถ้าแก้แอปได้ ใส่ data-testid หรือ aria-label)`,
+        `${file} line ${no}: ${line.trim()}\n      picks by position / page structure / generated id — may hit the wrong element when the page changes → use a locator with a name or text (if you own the app, add data-testid or aria-label)`
+      ));
+    }
+  });
+  return warns;
+}
+
 function genHelper(P, c, feature) {
   return `// Generated by scripts/setup-5.mjs — extend via Setup 6.
 import type { Locator, Page } from '@playwright/test';
@@ -406,6 +496,45 @@ import { ${c}Locators } from '../_locators/${feature}';
 
 // Accepts both static-only and parametric locator arrays.
 const locators: ReadonlyArray<(page: Page, value?: string) => Locator> = ${c}Locators;
+
+// What kind of field is this element? (text box, native <select>, dropdown, or something else)
+export async function fieldKind(target: Locator): Promise<'text' | 'select' | 'dropdown' | string> {
+  return target.evaluate((el: Element) => {
+    const tag = el.tagName;
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    if (tag === 'SELECT') return 'select';
+    if (role === 'combobox' || el.getAttribute('aria-haspopup') === 'listbox') return 'dropdown';
+    if (role === 'textbox' || role === 'searchbox' || tag === 'TEXTAREA') return 'text';
+    const editable = (el.getAttribute('contenteditable') || 'false').toLowerCase();
+    if ((el as HTMLElement).isContentEditable || ['', 'true', 'plaintext-only'].includes(editable)) return 'text';
+    if (tag === 'INPUT') {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (['checkbox', 'radio'].includes(type)) return type;
+      if (['button', 'submit', 'reset', 'image'].includes(type)) return 'button';
+      if (type === 'file') return 'file input';
+      return 'text';
+    }
+    if (tag === 'BUTTON' && role !== 'combobox') {
+      // Buttons that open a list (shadcn / Radix select triggers) announce it with aria-expanded
+      return el.hasAttribute('aria-expanded') ? 'dropdown' : 'button';
+    }
+    return 'dropdown'; // div / span / placeholder text: treated as a dropdown opener
+  });
+}
+
+// Open a dropdown and pick an option by name. Used for dropdown slots in _locators
+// and for dropdown steps in _flows (codegen records them as "opener click + option click").
+export async function selectOption(page: Page, opener: Locator, name: string): Promise<void> {
+  const option = page.getByRole('option', { name });
+  await opener.click();
+  try {
+    await option.first().waitFor({ state: 'visible', timeout: 5_000 });
+  } catch {
+    // Some dropdowns open only on a second click (e.g. after taking focus)
+    await opener.click();
+  }
+  await option.click();
+}
 
 async function applyItem(page: Page, index: number, item: string): Promise<void> {
   const locatorFn = locators[index];
@@ -437,18 +566,20 @@ async function applyItem(page: Page, index: number, item: string): Promise<void>
     return;
   }
 
-  // Static locator + text: dispatch by locator type
+  // Static locator + text: decided by the element on the page, not by how codegen wrote the locator.
   const target = locatorFn(page);
-  const locatorCode = locatorFn.toString();
+  const kind = await fieldKind(target);
 
-  if (/getByRole\\(\\s*['"]textbox['"]/.test(locatorCode)) {
+  if (kind === 'text') {
     await target.fill(item);
-  } else if (/getByRole\\(\\s*['"]combobox['"]/.test(locatorCode) || locatorCode.includes('ng-select')) {
-    await target.click();
-    await page.getByRole('option', { name: item }).click();
+  } else if (kind === 'select') {
+    await target.selectOption({ label: item });
+  } else if (kind === 'dropdown') {
+    await selectOption(page, target, item);
   } else {
     throw new Error(
-      \`Cannot dispatch text value at index \${index} — unknown locator type. Locator: \${locatorCode}\`
+      \`Locator at index \${index} is a \${kind} — it cannot take text "\${item}". \` +
+        \`Use |click (or add an action such as |check with Setup 6)\`
     );
   }
 }
@@ -469,9 +600,16 @@ export async function apply${P}Inputs(page: Page, testData: ${P}TestCase): Promi
 }
 
 function genSpec(P, c, feature, flows) {
-  const setup = reindent(flows.setup, '  ');
-  const pre = reindent(flows.pre, '      ');
-  const post = reindent(flows.post, '      ');
+  const f = `_flows/${feature}.ts`;
+  const cs = collapseDropdowns(flows.setup, flows.lineOf.setup, f);
+  const cp = collapseDropdowns(flows.pre, flows.lineOf.pre, f);
+  const cq = collapseDropdowns(flows.post, flows.lineOf.post, f);
+  flows.dropdownNotes = [...cs.notes, ...cp.notes, ...cq.notes];
+  flows.droppedLines = new Set([...cs.dropped, ...cp.dropped, ...cq.dropped]);
+  const usesSelect = cs.used || cp.used || cq.used;
+  const setup = reindent(cs.lines, '  ');
+  const pre = reindent(cp.lines, '      ');
+  const post = reindent(cq.lines, '      ');
 
   let urlCheck = '';
   if (flows.gotoUrl) {
@@ -499,7 +637,7 @@ async function waitForLoading(page: Page): Promise<void> {
   return `// Generated by scripts/setup-5.mjs from _flows/${feature}.ts — regenerate instead of editing flow steps.
 import { test, expect, type Page } from '@playwright/test';
 import { ${c}TestCases } from './${feature}.data';
-import { apply${P}Inputs } from './${feature}.helper';
+import { apply${P}Inputs${usesSelect ? ', selectOption' : ''} } from './${feature}.helper';
 ${waitFn}
 async function enter${P}Page(page: Page): Promise<void> {
 ${block(setup)}}
@@ -657,7 +795,12 @@ function main() {
   console.log(t(`   flow: SETUP ${count(flows.setup)} บรรทัด, ก่อน DATA ${count(flows.pre)}, หลัง DATA ${count(flows.post)}`,
     `   flow lines: SETUP ${count(flows.setup)}, before DATA ${count(flows.pre)}, after DATA ${count(flows.post)}`));
   for (const name of Object.keys(files)) console.log(`   - ${name}`);
-  for (const w of warnings) console.log(`⚠️  ${w}`);
+  for (const n of flows.dropdownNotes) console.log(`ℹ️  ${n}`);
+  const brittle = [
+    ...brittleWarnings(flows.allLines, `_flows/${feature}.ts`, flows.droppedLines),
+    ...brittleWarnings(readText(locFile).split('\n'), `_locators/${feature}.ts`),
+  ];
+  for (const w of [...warnings, ...brittle]) console.log(`⚠️  ${w}`);
   printRunHint(outDir, accessDir);
 }
 
